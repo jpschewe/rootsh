@@ -16,4 +16,11 @@ AC_DEFUN([adl_FUNC_GETOPT_LONG],
       AC_LIBOBJ(getopt1)
       AC_CONFIG_LINKS([src/getopt.h:src/gnugetopt.h])])])])
 
+AC_DEFUN([adl_FUNC_BASENAME],
+ [# Check for basename support
+  AC_CHECK_FUNCS([basename],,
+   [# Linux and HP-UX have a libgen for basename
+    AC_CHECK_LIB([libgen],[basename],[AC_DEFINE([HAVE_BASENAME])],
+     [# use my replacement
+      AC_LIBOBJ(basename)])])])
 
