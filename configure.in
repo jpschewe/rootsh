@@ -110,6 +110,39 @@ if test "x$logfile" = "xno" && test "x$syslog" = "xno" ; then
   AC_MSG_ERROR(you MUST log either to a file or syslog or both)
 fi
 
+defaultshell=
+AC_MSG_CHECKING(for defaultshell)
+AC_ARG_WITH(defaultshell,
+[  --with-defaultshell=PATH      specify which shell to call if rootsh is used as login shell],
+[
+  if test "x$withval" != "x" ; then
+    defaultshell=$withval
+  fi
+])
+if test "x$defaultshell" = "x" ; then
+  case "$host_os" in
+    *linux*)
+      defaultshell="/bin/bash"
+      ;;
+    *solaris*)
+      defaultshell="/bin/sh"
+      ;;
+    *hp*)
+      defaultshell="/sbin/sh"
+      ;;
+    *aix*)
+      defaultshell="/usr/bin/sh"
+      ;;
+    *cygwin*)
+      defaultshell="/bin/bash"
+      ;;
+    *)
+      defaultshell="/bin/sh"
+      ;;
+  esac
+fi
+AC_DEFINE_UNQUOTED(DEFAULTSHELL,"$defaultshell",[default shell])
+AC_MSG_RESULT($defaultshell)
 
 if test "x$prefix" = "xNONE" ; then
     prefix="/usr/local"

@@ -85,6 +85,7 @@ int createsessionid(void);
 int beginlogging(void);
 void dologging(char *, int);
 void endlogging(void);
+char *defaultshell(void);
 void version(void);
 void usage(void);
 #ifdef LOGTOSYSLOG
@@ -121,6 +122,8 @@ char *userName;                        /* the name of the calling user */
 char *runAsUser = NULL;                /* the user running the shell   */
 pid_t runAsUserPid;                    /* this user's pid              */
 int standalone;                        /* called by sudo or not?       */
+int useLoginShell = 0;                 /* invoke the shell as a login shell */
+int isaLoginShell = 0;                 /* rootsh was called by login   */
 
 
 int main(int argc, char **argv, char **envp) {
@@ -128,7 +131,6 @@ int main(int argc, char **argv, char **envp) {
   char *sucmd = SUCMD;
   fd_set readmask;
   int n, nfd, childPid;
-  int useLoginShell = 0;
   char buf[BUFSIZ];
   char *shellCommands = NULL;
   int c, option_index = 0;
@@ -439,13 +441,12 @@ void finish(int sig) {
 */
 
 int createsessionid(void) {
-  pid_t pid;
-
   /* 
   //  the process number is always unique
   */
-  pid = getpid();
-  snprintf(sessionId, sizeof(sessionId), "%s-%04x", basename(progName), pid);
+  snprintf(sessionId, sizeof(sessionId), "%s-%04x", 
+     *(basename(progName)) == '-' ? basename(progName) + 1 : basename(progName),
+     getpid());
   return(1);
 }
   
@@ -527,7 +528,8 @@ int beginlogging(void) {
     //  Note the start time in the log file 
     */
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "%s session opened for %s as %s on %s at %s", 
+        "%s %s session opened for %s as %s on %s at %s", 
+         isaLoginShell ? "login" : "",
          basename(progName), userName, 
          runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
          ttyname(0), ctime(&now)); 
@@ -546,14 +548,14 @@ int beginlogging(void) {
     */
     if (logtofile) {
       syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-          "%s=%s,%s: logging new session (%s) to %s", 
+          "%s=%s,%s: logging new %s session (%s) to %s", 
           userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-          ttyname(0), sessionId, logFileName);
+          ttyname(0), isaLoginShell ? "login" : "", sessionId, logFileName);
     } else {
       syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-          "%s=%s,%s: logging new session (%s)", 
+          "%s=%s,%s: logging new %s session (%s)", 
           userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-          ttyname(0), sessionId);
+          ttyname(0), isaLoginShell ? "login" : "", sessionId);
     }
   }
 #endif
@@ -604,7 +606,8 @@ void endlogging() {
   if (logtofile) {
     now = time(NULL);
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "%s session closed for %s on %s at %s", basename(progName),
+        "%s session closed for %s on %s at %s", 
+        *(basename(progName)) == '-' ? basename(progName) + 1 : basename(progName),
         userName, ttyname(0), ctime(&now)); 
     fwrite(msgbuf, sizeof(char), msglen, logFile);
     fclose(logFile);
@@ -651,7 +654,7 @@ char *setupusername() {
 
 char *setupshell() {
   int isvalid = 0;
-  char *shell;
+  char *shell, *shellenv;
   char *validshell;
   
   /* 
@@ -679,7 +682,20 @@ char *setupshell() {
     if (isvalid == 0) {
       fprintf(stderr, "%s is not in /etc/shells\n", shell);
       return(NULL);
-    }        
+    }
+    /*
+    //  if SHELL is /bin/rootsh and argv[0] is -rootsh we were probably
+    //  started as a commandline interpreter found in /etc/passwd
+    */
+    if (progName[0] == '-' && ! strcmp(basename(shell), progName + 1)) {
+      shell = calloc(sizeof(char), strlen(defaultshell()) + 1);
+      strcpy(shell, defaultshell());
+      shellenv = calloc(sizeof(char), strlen(shell) + 7);
+      sprintf(shellenv, "SHELL=%s", shell);
+      putenv(shellenv);
+      useLoginShell = 1;
+      isaLoginShell = 1;
+    }
   }
   return(shell);
 }
@@ -732,6 +748,23 @@ int setupusermode(void) {
 int setupstandalonemode(void) {
   standalone = (getenv("SUDO_USER") == NULL) ? 1 : 0;
   return (1);
+}
+
+/*
+//  If rootsh is used as user command interpreter in /etc/passwd, we have
+//  to find an alternative shell which will handle the users commands.
+*/
+
+char *defaultshell(void) {
+  char *defaultshell = DEFAULTSHELL;
+  if (strlen(defaultshell) > 0) {
+    return defaultshell;
+  } else {
+    /*
+    //  maybe there are other possibilities to find a suitable shell
+    */
+    return NULL;
+  }
 }
 
 

@@ -3,6 +3,9 @@
 /* descr */
 #undef AIX_COMPAT
 
+/* default shell */
+#undef DEFAULTSHELL
+
 /* /dev/ptc found. this should be aix */
 #undef HAVE_AIX_PTY
 
