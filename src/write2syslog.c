@@ -279,13 +279,11 @@ void write2syslog(const char *optr, size_t optrLength) {
     /*
     //  send the resulting line to syslog 
     */
-#ifdef LOGTOSYSLOG /* workaround until i find out how makefiles work */
 #ifdef LINECNT
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%03d: %s", linecnt++, eptr);
     if (linecnt == 101) linecnt = 0;
 #else
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s", eptr);
-#endif
 #endif
     /*
     //  release the escape-free buffer 
