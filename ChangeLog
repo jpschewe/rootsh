@@ -38,3 +38,7 @@
 	* added --logfile, --logdir, --no-logfile, --no-syslog
 	* manpage at http://people.consol.de/~lausser/rootsh/rootsh.html
 	* released as rootsh-1.1
+
+2004-11-29 Gerhard Lausser <gerhard.lausser@consol.de>
+	* deleted an accidentially left over line emitting a debug message
+	* released as rootsh-1.1.1

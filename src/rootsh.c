@@ -700,7 +700,6 @@ int setupusermode(void) {
 
 int setupstandalonemode(void) {
   standalone = (getenv("SUDO_USER") == NULL) ? 1 : 0;
-fprintf(stderr, "standalone  = %d\n", standalone);
   return (1);
 }
 
