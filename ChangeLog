@@ -16,3 +16,7 @@
 2004-09-01 Gerhard Lausser <gerhard.lausser@consol.de>
 	* session identifiers are now 3-digit hexadecimals
 	* --with-linenumbering adds a counter to syslog lines
+
+2004-09-02 Gerhard Lausser <gerhard.lausser@consol.de>
+	* session numbers are now a 4-digit representation of the pid
+	* local files are unique user-timestamp-pid
