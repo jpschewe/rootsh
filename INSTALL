@@ -33,7 +33,16 @@ Step 3. Decide if you want to change syslog priority.
         for your priority, either "local5.notice" or your own.
 
 
-Step 4. Configure your installation
+Step 4. Decide if you want to turn off syslog line numbering
+
+	By default every syslog line is prepended by a 3-digit counter
+	and a colon. If you are in doubt wether messages were lost on
+	their way to the syslog server, you can examine the counter's
+	column. The numbers should be ascending from 000 to 100 and
+	then again start at 000.
+
+
+Step 5. Configure your installation
 
 	There are 3 options to configure rootsh.
 
@@ -52,24 +61,29 @@ Step 4. Configure your installation
         Using this option will allow you to change the default
         priority "local5.notice":
 
+	--disable-linenumbering
+
+	Using this option will turn off prepending the syslog lines 
+	with a line counter.
+
 	By calling the binary with the "-V" or "--version" option
 	you can later see how these options were used.
 	
 
-Step 5. Build the binaries.
+Step 6. Build the binaries.
 
 	This is the easy part, type "make".
 	It worked for me on Linux 2.4, SunOS5.9, HP-UX11.11 and AIX 5
 
 	
-Step 6. Install the components.
+Step 7. Install the components.
 
 	Type "make install".
 	
 	This will install your rootsh binary.  
 
 
-Step 7. Grant a user the right to use rootsh
+Step 8. Grant a user the right to use rootsh
 
         Make an entry in your /etc/sudoers and give the user the right
         to execute the rootsh binary.

@@ -171,7 +171,6 @@ void write2syslog(const char *optr, size_t optrLength) {
   /* a 3-digit counter which prepends each line sent to the syslog server 
      this allows the detection of dropped lines */
   static int linecnt = 0;
-  char linecntstr[5];
 #endif
   
   /* ignore empty input */

@@ -12,3 +12,4 @@ else
 fi
 echo saved old logfiles to /tmp/rootsh
 test -f /usr/bin/rootsh && rm -f /usr/bin/rootsh
+exit 0

@@ -1,6 +1,6 @@
 PKG="rootsh"
 NAME="logging root shell"
-VERSION="0.1"
+VERSION="0.2"
 CATEGORY="system"
 ARCH="sparc"
 VENDOR="not for sale"

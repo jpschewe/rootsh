@@ -1,6 +1,6 @@
-create a datastream package named rootsh-0.1-HP-UX.depot
-# /usr/sbin/swpackage -srootsh.psf -drootsh-0.1-HP-UX.depot -xtarget_type=tape
+create a datastream package named rootsh-0.2-HP-UX.depot
+# /usr/sbin/swpackage -srootsh.psf -drootsh-0.2-HP-UX.depot -xtarget_type=tape
 
 install it
-# swinstall -s `pwd`/rootsh-0.1-HP-UX.depot \*
+# swinstall -s `pwd`/rootsh-0.2-HP-UX.depot \*
 

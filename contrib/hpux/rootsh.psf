@@ -28,7 +28,7 @@ product
         tag ROOTSH
         title "a logging shell wrapper for wannabe root users"
         description "rootsh forks a new shell, intercepts all input and output and sends it to a logfile and to syslog"
-        revision 0.1
+        revision 0.2
         #
         architecture S700/S800_HPUX_10/11
         machine_type 9000/[78]*
@@ -39,7 +39,7 @@ product
         fileset
                 tag rootsh
                 title "rootsh executables"
-                revision 0.1
+                revision 0.2
 
                 file -u 266 -g bin -o bin bin/rootsh /usr/bin/rootsh
                 postinstall rootsh.postinstall

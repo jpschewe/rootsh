@@ -58,23 +58,28 @@ local5.notice	@your_central_syslog_host
 Wherever you send your syslog data to, the resulting output will be
 like this:
 
-Jul  2 17:44:19 ws0001 rootsh-020: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020) to /var/log/rootsh/usr1234.20040702174419.16057 
-Jul  2 17:44:21 ws0001 rootsh-020: ws0001:~ # id 
-Jul  2 17:44:21 ws0001 rootsh-020: uid=0(root) gid=0(root) groups=0(root)
-Jul  2 17:44:22 ws0001 rootsh-020: ws0001:~ #  
-Jul  2 17:46:03 ws0001 rootsh-020: ws0001:~ # exit 
-Jul  2 17:46:03 ws0001 rootsh-020: exit 
-Jul  2 17:46:03 ws0001 rootsh-020:  
-Jul  2 17:46:03 ws0001 rootsh-020: usr1234,/dev/pts/0: closing rootsh session (rootsh-020) 
+Jul  2 17:44:19 ws0001 rootsh-020a: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020a) to /var/log/rootsh/usr1234.20040702174419.020a
+Jul  2 17:44:21 ws0001 rootsh-020a: ws0001:~ # id 
+Jul  2 17:44:21 ws0001 rootsh-020a: uid=0(root) gid=0(root) groups=0(root)
+Jul  2 17:44:22 ws0001 rootsh-020a: ws0001:~ #  
+Jul  2 17:46:03 ws0001 rootsh-020a: ws0001:~ # exit 
+Jul  2 17:46:03 ws0001 rootsh-020a: exit 
+Jul  2 17:46:03 ws0001 rootsh-020a:  
+Jul  2 17:46:03 ws0001 rootsh-020a: usr1234,/dev/pts/0: closing rootsh session (rootsh-020a) 
 
-where the rootsh-020 is an identifier created from the program's name and
-a 3 digit random number during the initialization of rootsh. It will prepend
+where the rootsh-020a is an identifier created from the program's name and
+a 4 digit hex number which is the pid of the rootsh process. It will prepend
 every line sent to syslog and will help you to find all the entries in
 a logfile belonging to a specific session. 
 (first find the "logging new..." line for the session you're interested in,
-take the identifier like rootsh-020 in the example and grep all occurences
+take the identifier like rootsh-020a in the example and grep all occurences
 of it from your logfile. If rootsh is running on many machines, there 
-may be collisions. Add the hostname to grep's pattern in this case.
+may be collisions if two rootsh processes have the same pid. 
+Add the hostname to grep's pattern in this case.
+You will also find the same output locally on the ws0001 host in a file
+called like this <caller's username>.<timestamp>.<process id>
+Depending on your operating system and configuration parameter --with-logdir=
+these files can be found in /var/log/rootsh, /var/adm/rootsh or your own choice.
 
 
 How it works:
