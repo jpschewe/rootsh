@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdlib.h>
 #include <syslog.h>
 #include <errno.h>
+#include "config.h"
 
 extern void write2syslog(const char *oBuffer, size_t oCharCount);
 char *stripesc(char *escBuffer);
@@ -166,6 +167,12 @@ void write2syslog(const char *optr, size_t optrLength) {
   char *lptr;                     
   /* signals the last output character was a '\r' */
   static int rflag = 0;           
+#ifdef LINECNT
+  /* a 3-digit counter which prepends each line sent to the syslog server 
+     this allows the detection of dropped lines */
+  static int linecnt = 0;
+  char linecntstr[5];
+#endif
   
   /* ignore empty input */
   if ((optrLength == 0) || (optr == NULL)) {    
@@ -197,7 +204,11 @@ void write2syslog(const char *optr, size_t optrLength) {
     /* skip a following \n if rflag is set */
     rflag = 1;                             
     /* allocate space for the line (exclude the found \r) plus space for a \0 */
+#ifdef LINECNT
+    eptr = malloc(lptr - tptr + 1 + 4);        
+#else
     eptr = malloc(lptr - tptr + 1);        
+#endif
     /* copy everything except the \r */
     memcpy(eptr, tptr, lptr - tptr);       
     /* make a c string from it */
@@ -205,6 +216,14 @@ void write2syslog(const char *optr, size_t optrLength) {
     /* filter out escape sequences */
     stripesc(eptr);
     /* send the resulting line to syslog */                        
+#ifdef LINECNT
+    sprintf(linecntstr, "%03d ", linecnt++);
+    if (linecnt == 101) {
+      linecnt = 0;
+    }
+    memmove(eptr + 4, eptr, strlen(eptr) + 1);
+    memcpy(eptr, linecntstr, 4);
+#endif
     syslog(LOG_LOCAL5|LOG_NOTICE, "%s", eptr);
     /* release the escape-free buffer */
     free(eptr);

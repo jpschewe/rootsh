@@ -14,7 +14,7 @@ AC_CANONICAL_HOST
 syslog=
 AC_MSG_CHECKING(for syslog)
 AC_ARG_ENABLE(syslog,
-[  --enable-syslog[=facility.priority]             enable logging to syslog],
+[  --enable-syslog[=facility.priority]     enable logging to syslog],
 [
   syslog=$enableval
 ])
@@ -43,6 +43,18 @@ else
   priority="LOG_"`echo $priority | tr '[[:lower:]]' '[[:upper:]]'`
   AC_DEFINE_UNQUOTED(SYSLOGFACILITY, $facility, [syslog facility])
   AC_DEFINE_UNQUOTED(SYSLOGPRIORITY, $priority, [syslog priority])
+  AC_MSG_CHECKING(for syslog linenumbering)
+  AC_ARG_ENABLE(linenumbering,
+  [  --enable-linenumbering		enable numbering of syslog lines],
+  [
+    linenumbering=$enableval
+  ])
+  if test "x$linenumbering" = "xyes" || test "x$linenumbering" = "x" ; then
+    AC_MSG_RESULT(enabled)
+    AC_DEFINE(LINECNT, 1,[enable numbering of syslog lines])
+  else
+    AC_MSG_RESULT(disabled)
+  fi
 fi
 
 

@@ -288,7 +288,7 @@ int beginlogging(void) {
   /* create a session identifier which helps you identify the lines
      which belong to the same session when browsing large logfiles */
   srand((unsigned)time(NULL));  
-  sprintf(sessionId, "%s-%03d", basename(progName), rand() % 1000);
+  sprintf(sessionId, "%s-%03x", basename(progName), rand() % 1000);
   /* Prepare usage of syslog with sessionid as prefix */
   openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
   /* Note the log file name in syslog */

@@ -851,7 +851,8 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-syslog=facility.priority             enable logging to syslog
+  --enable-syslog=facility.priority     enable logging to syslog
+  --enable-linenumbering		enable numbering of syslog lines
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
   --disable-more-warnings  Inhibit compiler warnings
@@ -1863,6 +1864,27 @@ cat >>confdefs.h <<_ACEOF
 #define SYSLOGPRIORITY $priority
 _ACEOF
 
+  echo "$as_me:$LINENO: checking for syslog linenumbering" >&5
+echo $ECHO_N "checking for syslog linenumbering... $ECHO_C" >&6
+  # Check whether --enable-linenumbering or --disable-linenumbering was given.
+if test "${enable_linenumbering+set}" = set; then
+  enableval="$enable_linenumbering"
+
+    linenumbering=$enableval
+
+fi;
+  if test "x$linenumbering" = "xyes" || test "x$linenumbering" = "x" ; then
+    echo "$as_me:$LINENO: result: enabled" >&5
+echo "${ECHO_T}enabled" >&6
+
+cat >>confdefs.h <<\_ACEOF
+#define LINECNT 1
+_ACEOF
+
+  else
+    echo "$as_me:$LINENO: result: disabled" >&5
+echo "${ECHO_T}disabled" >&6
+  fi
 fi
 
 
