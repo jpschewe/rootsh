@@ -1,0 +1,4 @@
+- create really unique session identifiers
+- add a counter to the lines sent to syslog. there may be losses.
+  maybe the counter can be a part of the session identifier.
+  rootsh-020-0087
