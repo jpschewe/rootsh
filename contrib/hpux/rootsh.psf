@@ -1,0 +1,49 @@
+# PSF file for /usr/contrib                               1/14/97
+#
+#
+# Useful Commands:
+#
+# swpackage -p -vv -s /depot/psf_files/rootsh.psf -d /depot/s700_contrib
+# swmodify -p -d -vv -s /depot/psf_files/rootsh.psf rootsh @ /depot/s700_contrib
+# swremove -p -v -d rootsh,r=yyy @ /depot/s700_contrib
+# swinstall -p -v -s /depot/s700_contrib rootsh
+#
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# This section is optional -- delete it if you don't want it.
+#
+vendor
+        tag yourcompany
+        title "Linux operations at yourcompany"
+        #description ""
+end
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# Describe the product below.  Search and replace the rootsh. Delete
+# what you don't use.  Either define filesets by file or by whole directory.
+#
+product
+        tag ROOTSH
+        title "a logging shell wrapper for wannabe root users"
+        description "rootsh forks a new shell, intercepts all input and output and sends it to a logfile and to syslog"
+        revision 0.1
+        #
+        architecture S700/S800_HPUX_10/11
+        machine_type 9000/[78]*
+        os_name HP-UX
+        os_release ?.10.*|?.11.*
+        os_version *
+        #
+        fileset
+                tag rootsh
+                title "rootsh executables"
+                revision 0.1
+
+                file -u 266 -g bin -o bin bin/rootsh /usr/bin/rootsh
+                postinstall rootsh.postinstall
+                postremove rootsh.postremove
+        end
+end
+

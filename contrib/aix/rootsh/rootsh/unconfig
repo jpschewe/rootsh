@@ -1,0 +1,20 @@
+#!/usr/bin/ksh
+#**********************************************************************
+#                                                                     *
+# ROOTSH.UNCONFIG                                                     *
+#                                                                     *
+# This is the uinstall procedure for the lpp component:               *
+# rootsh.rootsh                                                       *
+#                                                                     *
+#                                                                     *
+#**********************************************************************
+if [ -d /tmp/rootsh ]; then
+  # there is already an old backup directory. move just the logfiles
+  mv /var/adm/rootsh/* /tmp/rootsh
+  rm -rf /var/adm/rootsh
+else
+  # copy the entire log directory to tmp
+  mv /var/adm/rootsh /tmp/rootsh
+fi
+echo saved old logfiles to /tmp/rootsh
+test -f /usr/bin/rootsh && rm -f /usr/bin/rootsh

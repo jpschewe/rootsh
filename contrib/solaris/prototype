@@ -1,0 +1,4 @@
+i pkginfo=./pkginfo
+i postinstall=./postinstall
+f none /usr/bin/rootsh=bin/rootsh 0511 root bin
+

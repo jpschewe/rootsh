@@ -1,0 +1,15 @@
+#!/sbin/sh
+
+PATH=$SW_PATH:/sbin:/usr/bin:/usr/ccs/sbin
+export PATH
+
+if [ -d /var/adm/rootsh ]; then
+  echo Directory /var/adm/rootsh already exists
+else
+  echo Adding directory /var/adm/rootsh
+  mkdir /var/adm/rootsh
+fi
+echo Setting permissions for /var/adm/rootsh
+chmod 700 /var/adm/rootsh
+echo ATTENTION: please add an entry for local5.notice to your /etc/syslog.conf
+

@@ -1,0 +1,14 @@
+#!/sbin/sh
+
+PATH=$SW_PATH:/sbin:/usr/bin:/usr/ccs/sbin
+export PATH
+
+if [ -d /tmp/rootsh ]; then
+  mv /var/adm/rootsh/* /tmp/rootsh
+  rm -rf /var/adm/rootsh
+
+else
+  mv /var/adm/rootsh /tmp/rootsh
+fi
+echo saved old logfiles to /tmp/rootsh
+test -f /usr/bin/rootsh && rm -f /usr/bin/rootsh

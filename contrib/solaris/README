@@ -1,0 +1,8 @@
+copy the rootsh binary to the bin directory
+
+# pkgmk -d `pwd`
+will create the package rootsh in directory format
+# pkgtrans `pwd` rootsh.pkg rootsh
+will create  the package rootsh.pkg in datastream format
+
+
