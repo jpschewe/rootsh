@@ -35,6 +35,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <regex.h>
 #if HAVE_SYS_SELECT_H
 #  include <sys/select.h>
 #endif
@@ -67,6 +69,7 @@ void endusershell(void);
 void finish(int);
 char *whoami(void);
 char *setupshell(void);
+int createsessionid(void);
 int beginlogging(void);
 void endlogging(void);
 void version(void);
@@ -132,6 +135,9 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   
+  if (! createsessionid()) {
+    exit(EXIT_FAILURE);
+  }
   if (! beginlogging()) {
     exit(EXIT_FAILURE);
   }
@@ -255,6 +261,24 @@ void finish(int sig) {
     close(masterPty);
     exit(EXIT_SUCCESS);
 }
+
+
+/* create a session identifier which helps you identify the lines
+   which belong to the same session when browsing large logfiles.
+   also used in the logfiles name.
+   for each host there may be no sessions running at the same time
+   having the same identifier.
+*/
+
+int createsessionid(void) {
+  pid_t pid;
+
+  /* the process number is always unique
+  */
+  pid = getpid();
+  sprintf(sessionId, "%s-%04x", basename(progName), pid);
+  return(1);
+}
   
 /* 
   open a logfile and initialize syslog. 
@@ -264,15 +288,8 @@ int beginlogging(void) {
   time_t now;
   int sec, min, hour, day, month, year, msglen;
   char logFileName[MAXPATHLEN], msgbuf[BUFSIZ];
-  pid_t pid;
 
-  /* create a session identifier which helps you identify the lines
-     which belong to the same session when browsing large logfiles.
-     also used in the logfiles name */
-  srand((unsigned)time(NULL));  
-  sprintf(sessionId, "%s-%03x", basename(progName), rand() % 4096);
   /* construct the logfile name. */
-  pid = getpid(); 
   now = time(NULL);
   year = localtime(&now)->tm_year + 1900;
   month = localtime(&now)->tm_mon + 1;
@@ -282,7 +299,7 @@ int beginlogging(void) {
   sec = localtime(&now)->tm_sec;
   snprintf(logFileName, (sizeof(logFileName) - 1), 
       "%s/%s.%04d%02d%02d%02d%02d%02d.%s", 
-       LOGDIR, userName, year,month, day, hour, min, sec, 
+       LOGDIR, userName, year,month, day, hour, min, sec,
        strrchr(sessionId, '-') + 1);
 
   /* Open the logfile */
@@ -294,14 +311,15 @@ int beginlogging(void) {
   /* Prepare usage of syslog with sessionid as prefix */
   openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
   /* Note the log file name in syslog */
-  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s,%d: logging new session (%s) to %s", 
-         userName, ttyname(0), (int)pid, sessionId, logFileName);
+  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
+      "%s,%s: logging new session (%s) to %s", 
+      userName, ttyname(0), sessionId, logFileName);
 #endif
 
   /* Note the start time in the log file */
   msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session (pid %d) opened for %s on %s at %s", 
-       basename(progName), (int)pid, userName, ttyname(0), ctime(&now)); 
+      "%s session opened for %s on %s at %s", 
+       basename(progName), userName, ttyname(0), ctime(&now)); 
   fwrite(msgbuf, sizeof(char), msglen, logFile);
   fflush(logFile);
   return(1);
