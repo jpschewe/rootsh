@@ -44,6 +44,17 @@ exit
 usr1234@ws0001:~>
 
 
+If you compiled rootsh with the default settings, the keystrokes and output
+will be sent line by line to the syslog daemon using priority local5.info
+To collect the output coming from running rootsh commands in a specific file
+make an entry in your /etc/syslog.conf like this:
+
+local5.notice	/var/log/rootshell
+
+or maybe like this:
+
+local5.notice	@your_central_syslog_host
+
 Wherever you send your syslog data to, the resulting output will be
 like this:
 
