@@ -20,8 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include <errno.h>
 #include "config.h"
-
 #include <sys/param.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,7 +71,7 @@ char *getusershell(void);
 void setusershell(void);
 void endusershell(void);
 #endif
-extern char **environ;
+
 /*
 //   our own functions 
 */
@@ -85,7 +85,11 @@ int createsessionid(void);
 int beginlogging(void);
 void dologging(char *, int);
 void endlogging(void);
+int recoverfile(int, char *);
+int forceopen(char *);
 char *defaultshell(void);
+char **saveenv(char *name);
+void restoreenv(void);
 void version(void);
 void usage(void);
 #ifdef LOGTOSYSLOG
@@ -98,11 +102,15 @@ pid_t forkpty(int *master,  char  *name,  struct  termios *termp, struct winsize
 /* 
 //  global variables 
 */
+extern char **environ;
+extern int errno;
+
 char progName[MAXPATHLEN];             /* used for logfile naming    */
 int masterPty;
-FILE *logFile;
-char logFileName[MAXPATHLEN - 7];      /* the final logfile name     */
-char closedLogFileName[MAXPATHLEN];    /* same with .closed appended */
+int logFile;
+ino_t logInode;                        /* the inode of the logfile   */
+dev_t logDev;                          /* the device of the logfile  */
+char logFileName[MAXPATHLEN - 9];      /* the final logfile name     */
 char *userLogFileName = NULL;          /* what the user proposes     */
 char *userLogFileDir = NULL;           /* what the user proposes     */
 char sessionId[MAXPATHLEN + 11];
@@ -419,10 +427,10 @@ void finish(int sig) {
       perror("tcsetattr: stdin");
   if (sig == 0) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session ended by user\n", basename(progName));
+        "\n*** %s session ended by user\r\n", basename(progName));
   } else {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session interrupted by signal %d\n", basename(progName), sig);
+        "\n*** %s session interrupted by signal %d\r\n", basename(progName), sig);
   }
   dologging(msgbuf, msglen);
   endlogging();
@@ -458,11 +466,12 @@ int createsessionid(void) {
 */
 
 int beginlogging(void) {
+#ifdef LOGTOFILE
   time_t now;
   char msgbuf[BUFSIZ];
-#ifdef LOGTOFILE
   char defaultLogFileName[MAXPATHLEN - 7];
   int sec, min, hour, day, month, year, msglen;
+  struct stat statBuf;
 #endif
 
   if (logtofile == 0 && logtosyslog == 0) {
@@ -515,15 +524,23 @@ int beginlogging(void) {
       snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
           LOGDIR, defaultLogFileName);
     }
-    snprintf(closedLogFileName, (sizeof(closedLogFileName) - 1),
-        "%s.closed", logFileName);
     /* 
     //  Open the logfile 
     */
-    if ((logFile = fopen(logFileName, "w")) == NULL) {
+    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_EXCL|O_SYNC, S_IRUSR|S_IWUSR)) == -1) {
       perror(logFileName);
       return(0);
     }
+    /*
+    //  Remember inode and device. We will later see if the logfile
+    //  we just opened is the same that we will close.
+    */
+    if (fstat(logFile, &statBuf) == -1) {
+      perror(logFileName);
+      return(0);
+    }
+    logInode = statBuf.st_ino;
+    logDev = statBuf.st_dev;
     /* 
     //  Note the start time in the log file 
     */
@@ -533,8 +550,7 @@ int beginlogging(void) {
          basename(progName), userName, 
          runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
          ttyname(0), ctime(&now)); 
-    fwrite(msgbuf, sizeof(char), msglen, logFile);
-    fflush(logFile);
+    write(logFile, msgbuf, msglen);
   }
 #endif
 #ifdef LOGTOSYSLOG
@@ -571,8 +587,7 @@ int beginlogging(void) {
 void dologging(char *msgbuf, int msglen) {
 #ifdef LOGTOFILE
   if (logtofile) {
-    fwrite(msgbuf, sizeof(char), msglen, logFile);
-    fflush(logFile);    
+    write(logFile, msgbuf, msglen);
   }
 #endif
 #ifdef LOGTOSYSLOG
@@ -584,16 +599,103 @@ void dologging(char *msgbuf, int msglen) {
 
 
 /* 
-//  send a final cr-lf to flush the log.
-//  close the logfile and syslog.
-//  append ".closed" to the logfile's name.
+//  Send a final cr-lf to flush the log.
+//  Close the logfile and syslog.
+//  Examine inode and device of the logfile to find traces of manipulation.
+//  Append ".tampered" to the recovered logfile's name if something was found.
+//  Append ".closed" to the logfile's name otherwise.
 */
 
 void endlogging() {
+#ifdef LOGTOFILE
   time_t now;
   int msglen;
   char msgbuf[BUFSIZ];
+  struct stat statBuf;
+  char closedLogFileName[MAXPATHLEN];
+#endif
 
+#ifdef LOGTOFILE
+  if (logtofile) {
+    now = time(NULL);
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+        "%s session closed for %s on %s at %s", 
+        *(basename(progName)) == '-' ? 
+        basename(progName) + 1 : basename(progName),
+        userName, ttyname(0), ctime(&now)); 
+    write(logFile, msgbuf, msglen);
+    /*
+    //  From here on, a filled message buffer means an error has occurred
+    */
+    msgbuf[0] = '\0';
+    if (stat(logFileName, &statBuf) == -1) {
+      /*
+      //  There is no file named logFileName.
+      */
+      if (fstat(logFile, &statBuf) == -1) {
+        /*
+        //  Even the open file descriptor does not work.
+        */
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** THIS FILEHANDLE HAS BEEN DELETED ***\r\n");
+      } else {
+        /*
+        //  The file ist still reachable via file descriptor.
+        */
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** USER TRIED TO DELETE THIS FILE ***\r\n");
+      }
+    } else {
+      /*
+      //  A file with the correct name and path was found. Now look
+      //  for manipulations.
+      */
+      if ((logInode != statBuf.st_ino) || (logDev != statBuf.st_dev)) {
+        /*
+        //  Device or inode have changed. This is not the file we opened,
+        //  it has just the same name.
+        */
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** USER TRIED TO DELETE AND RECREATE THIS FILE ***\r\n");
+        unlink(logFileName) && rmdir(logFileName);
+      } else {
+        if (fstat(logFile, &statBuf) == -1) {
+          /*
+          //  Something bad happened to the file descriptor.
+          //  There's not much i can do here.
+          */
+          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+              "*** THIS FILEHANDLE HAS BEEN DELETED ***\r\n");
+        }
+      }
+    }
+    if (strlen(msgbuf) > 0) {
+      /*
+      //  There is an error message. Send publish it and then try to
+      //  save the contents of the (manipulated) logfile into a new
+      //  file <logfile>.tampered
+      */
+      dologging(msgbuf, msglen);
+      snprintf(closedLogFileName, sizeof(closedLogFileName), "%s.tampered",
+          logFileName);
+      if (! recoverfile(logFile, strncat(logFileName, ".tampered",
+          sizeof(logFileName)))) {
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** THIS LOGFILE CANNOT BE RECOVERED ***\r\n");
+      } else {
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** MANIPULATED LOGFILE RECOVERED ***\r\n");
+      }
+      dologging(msgbuf, msglen);
+      close(logFile);
+    } else {
+      close(logFile);
+      snprintf(closedLogFileName, sizeof(closedLogFileName), "%s.closed",
+          logFileName);
+      rename(logFileName, closedLogFileName);
+    } 
+  }
+#endif
 #ifdef LOGTOSYSLOG
   if (logtosyslog) {
     write2syslog("\r\n", 2);
@@ -602,21 +704,66 @@ void endlogging() {
     closelog();
   }
 #endif
-#ifdef LOGTOFILE
-  if (logtofile) {
-    now = time(NULL);
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "%s session closed for %s on %s at %s", 
-        *(basename(progName)) == '-' ? basename(progName) + 1 : basename(progName),
-        userName, ttyname(0), ctime(&now)); 
-    fwrite(msgbuf, sizeof(char), msglen, logFile);
-    fclose(logFile);
-    rename(logFileName, closedLogFileName);
-  }
-#endif
 }
 
-  
+
+/*
+//  Try to save the contents of a deleted file with a still open
+//  filehandle to another file
+*/
+
+int recoverfile(int ohandle, char *recoverFileName) {
+  char msgbuf[BUFSIZ];
+  int fd, n;
+  if ((fd = forceopen(recoverFileName)) != -1) {
+    lseek(ohandle, 0, SEEK_SET);
+    while ((n = read(ohandle, (void *)msgbuf, BUFSIZ)) > 0) {
+      if (write(fd, (void *)msgbuf, n) !=n) {
+        perror("write recoverfile");
+      }
+    }
+    close(fd);
+    return (1);
+  } else {
+    return (0);
+  }
+}
+
+
+/*
+//  Try to open/create a file even if it already exists as a directory
+//  or link.
+*/
+
+int forceopen(char *path) {
+  int tries = 0;
+  int fd;
+  int msglen;
+  char msgbuf[BUFSIZ];
+  while ((fd = open(path, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR)) == -1) {
+    if (++tries >= 3)
+      break;
+    switch(errno) {
+      case EEXIST:
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** FILE ALREADY EXISTS ***\r\n");
+        unlink(path);
+        break;
+      case EISDIR:
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** FILE ALREADY EXISTS AS A DIRECTORY ***\r\n");
+        rmdir(path);
+        break;
+      default:
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+            "*** FILE COULD NOT BE CREATED (ERRNO %d)  ***\r\n", errno);
+        break;
+    }
+    dologging(msgbuf, msglen);
+  }
+  return (fd);
+}
+
 
 /*
 //  find out the username of the calling user
@@ -728,11 +875,13 @@ int setupusermode(void) {
       return(0);
     } else {
       runAsUserPid = pass->pw_uid;
+      saveenv("TERM");
 #ifdef CLEARENV_FOUND
       clearenv();
 #else
       environ = NULL;
 #endif
+      restoreenv();
       return (1);
     }
   }
@@ -767,6 +916,70 @@ char *defaultshell(void) {
   }
 }
 
+
+/*
+//  Save an environment variable to a copy of the system pointer environ.
+//  The pointer is static so we can later create a new environment from
+//  the saved variables.
+//  Calling savenv with a NULL name simply returns the pointer to
+//  the saved environment.
+*/
+char **saveenv(char *name) {
+  static char **senv = NULL;
+  static char **senvp;
+  if (name == NULL) {
+    return senv;
+  } else {
+    /*
+    //  Only save existing variables
+    */
+    if (getenv(name) != NULL) {
+      if (senv == NULL) {
+        /*
+        //  We are called for the first time. Allocate memory to
+        //  a pointer containing name=value and a closing null pointer.
+        */
+        senv = (char **)calloc(2, sizeof(char *));
+      } else {
+        /*
+        //  Allocate memory for another pointer
+        */
+        senv = realloc(senv, (senvp - senv + 2) * sizeof(char *));
+      }
+      senvp = senv;
+      /*
+      //  Now position senvp to the closing null pointer or to an
+      //  already existing name=value entry
+      */
+      while (*senvp != NULL && 
+          strncmp(*senvp, name, strchr(*senvp, '=') - *senvp)) {
+        senvp++;
+      }
+      if (*senvp == NULL) {
+        /*
+        //  A pointer to the new name=value will be attached to senv.
+        //  The closing NULL pointer moves one position up.
+        */
+        *senvp = malloc(strlen(name) + strlen(getenv(name)) + 2);
+        sprintf(*senvp, "%s=%s", name, getenv(name));
+        *(++senvp) = NULL;
+      }
+    }
+    return senv;
+  }
+}
+
+
+/*
+//  Rebuild the environment from saved variables.
+*/
+void restoreenv(void) {
+  char **senv;
+  senv = saveenv(NULL);
+  while (*senv != NULL) {
+    putenv(*senv++);
+  }
+}
 
 #ifndef HAVE_FORKPTY
 /* 
@@ -925,7 +1138,7 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
     */
     close(master);
     if (logtofile) {
-      fclose(logFile);
+      close(logFile);
     }
     if (logtosyslog) {
       closelog();
