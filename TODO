@@ -1,4 +1,3 @@
-- create really unique session identifiers
-- add a counter to the lines sent to syslog. there may be losses.
-  maybe the counter can be a part of the session identifier.
-  rootsh-020-0087
+- some kind of line numbering for detection of lost syslog output
+- more session identifier uniqueness by dirst looking if a logfile
+  with the same identifier already exists

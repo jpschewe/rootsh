@@ -8,3 +8,8 @@
 	* posix sigaction is now the preferred signal handling
 	* configure.in tests for sys/select.h
 
+2004-07-27 Gerhard Lausser <gerhard.lausser@consol.de>
+
+	* upload of file release rootsh-0.1.tar.gz to sourceforge
+	* creation of rootsh-0.2 for further development
+	
