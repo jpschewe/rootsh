@@ -7,7 +7,8 @@ AM_CONFIG_HEADER(src/config.h)
 dnl  ----- Put helper applications in a separate directory
 AC_CONFIG_AUX_DIR(config)
 
-AM_INIT_AUTOMAKE
+dnl -- AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE()
 AC_CANONICAL_HOST
 
 syslog=
@@ -36,6 +37,8 @@ else
   facility=`echo $syslogfac | sed -e 's/\..*$//g'`
   priority=`echo $syslogfac | sed -e 's/^.*\.//g'`
   AC_MSG_RESULT($facility.$priority)
+  AC_DEFINE_UNQUOTED(SYSLOGFACILITYNAME, "$facility", [syslog facility as string])
+  AC_DEFINE_UNQUOTED(SYSLOGPRIORITYNAME, "$priority", [syslog priority as string])
   facility="LOG_"`echo $facility | tr '[[:lower:]]' '[[:upper:]]'`
   priority="LOG_"`echo $priority | tr '[[:lower:]]' '[[:upper:]]'`
   AC_DEFINE_UNQUOTED(SYSLOGFACILITY, $facility, [syslog facility])

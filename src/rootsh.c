@@ -66,6 +66,8 @@ char *whoami(void);
 char *setupshell(void);
 int beginlogging(void);
 void endlogging(void);
+void version(void);
+void usage(void);
 #ifdef SYSLOGALL
 extern void write2syslog(const void *oBuffer, size_t oCharCount);
 #endif
@@ -86,12 +88,25 @@ char *userName;                        /* the name of the calling user */
 int main(int argc, char **argv) {
   char *shell;
   fd_set readmask;
-  int n, nfd, childPid;
+  int i, n, nfd, childPid;
   char buf[BUFSIZ];
   struct stat ttybuf;
 
   /* this should be rootsh, but it could have been renamed */
   strncpy(progName, argv[0], (MAXPATHLEN - 1));
+
+  for (i = 1; i < argc; i++) {
+    char *arg = argv[i];
+
+
+    if (strcmp (arg, "--help") == 0 || strcmp (arg, "-?") == 0) {
+      usage();
+    }
+    if (strcmp (argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
+      version();
+    }
+  }
+ 
   
   if((userName = getlogin()) == NULL) {
     /* HP-UX returns NULL here so we take the controlling terminal's owner */
@@ -504,3 +519,21 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
   }
 }
 #endif
+
+void version() {
+  printf("%s version %s\nlogfiles go to directory %s\n", 
+      basename(progName), VERSION, LOGDIR);
+#ifdef SYSLOGALL
+  printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
+#else
+  printf("no syslog logging\n");
+#endif
+  exit(0);
+}
+
+void usage() {
+  printf("Usage: %s [OPTION [ARG]] ...\n"
+    " -?, --help            show this help statement\n"
+    " -V, --version         show version statement\n", basename(progName));
+  exit(0);
+}

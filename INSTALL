@@ -13,6 +13,7 @@ Step 1. Decide if you want to have your logfiles in a non-standard place.
         /var/log/rootsh, /var/adm/rootsh, ...
         according to your operating system.
 
+
 Step 2. Decide if you want to disable syslog.
 
         By default all of the logged input and output will be 
@@ -22,6 +23,7 @@ Step 2. Decide if you want to disable syslog.
         In any case the logged input and output will be written
         into logfiles.
 
+
 Step 3. Decide if you want to change syslog priority.
   
         By default all syslog messages use level "local5" and
@@ -29,6 +31,7 @@ Step 3. Decide if you want to change syslog priority.
         whatever you want. 
         Be sure you edit your /etc/syslog.conf and make an entry
         for your priority, either "local5.notice" or your own.
+
 
 Step 4. Configure your installation
 
@@ -49,15 +52,22 @@ Step 4. Configure your installation
         Using this option will allow you to change the default
         priority "local5.notice":
 
+	By calling the binary with the "-V" or "--version" option
+	you can later see how these options were used.
+	
+
 Step 5. Build the binaries.
 
 	This is the easy part, type "make".
+	It worked for me on Linux 2.4, SunOS5.9, HP-UX11.11 and AIX 5
+
 	
 Step 6. Install the components.
 
 	Type "make install".
 	
 	This will install your rootsh binary.  
+
 
 Step 7. Grant a user the right to use rootsh
 
@@ -66,3 +76,15 @@ Step 7. Grant a user the right to use rootsh
         By typing "sudo rootsh" he will get a root shell and you can
         watch his steps or read later what he has done.
 	
+
+Some remarks:
+
+	I had two warnings on AIX with gcc-2.95 
+        /usr/include/time.h:236: warning: `struct sigevent' declared 
+	   inside parameter list
+	rootsh.c:258: warning: implicit declaration of function `snprintf'
+	which disappeared when i used the native compiler. 
+	Maybe a newer gcc also helps. (-std=c99 produced even more warnings)
+
+
+
