@@ -56,6 +56,13 @@ if [ $? -eq 0 ]; then
   make
   if [ $? -eq 0 ]; then
     echo "OK make $PARMS" >> test.log
+    rm -f lolo.closed lolo
+    src/rootsh -i --logfile=lolo -- ls -l test.sh 
+    if { grep test.sh lolo.closed; }; then
+      echo "OK run" >> test.log
+    else
+      echo "FAIL run" >> test.log
+    fi
   else
     echo "FAIL make $PARMS" >> test.log
   fi
