@@ -12,6 +12,9 @@
 /* /dev/ptc found. this should be aix */
 #undef HAVE_AIX_PTY
 
+/* Define to 1 if you have the `basename' function. */
+#undef HAVE_BASENAME
+
 /* we have bstring.h */
 #undef HAVE_BSTRING_H
 

@@ -58,6 +58,7 @@
 	* added conditional compilation of write2syslog.c
 
 2004-12-16 Gerhard Lausser <gerhard.lausser@consol.de>
+	* added tampering detection code in endlogging()
 	* finally found the bug that caused random coredumps in hpux
 	* added conditional compilation of basename.c (for cygwin)
-	* added tampering detection code in endlogging()
+	* added a lot of comments to the code

@@ -44,7 +44,7 @@ Step 4. Decide if you want to turn off syslog line numbering
 
 Step 5. Configure your installation
 
-	There are 5 options to configure rootsh.
+	There are 6 options to configure rootsh.
 
 	--disable-logfile
 
@@ -75,6 +75,13 @@ Step 5. Configure your installation
 
 	Using this option will turn off prepending the syslog lines 
 	with a line counter.
+
+	--with-defaultshell
+
+	If rootsh is a user's login shell from the 7th field in /etc/passwd
+	there has to be a real command line interpreting shell which will
+	be executed. You can override the default selection (mostly /bin/sh)
+	with your own preferred shell.
 
 	By calling the binary with the "-V" or "--version" option
 	you can later see how these options were used.

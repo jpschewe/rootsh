@@ -23,6 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */ 
 
+#ifdef S_SPLINT_S
+#  include <err.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -167,7 +170,7 @@ char *stripesc(char *escBuffer) {
     }
   }
   *cleanBufferPtr = '\0';
-  strcpy(escBuffer, cleanBuffer);
+  strncpy(escBuffer, cleanBuffer, buflen);
   free((void *)cleanBuffer);
   return(escBuffer);
 }
