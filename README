@@ -47,14 +47,14 @@ usr1234@ws0001:~>
 Wherever you send your syslog data to, the resulting output will be
 like this:
 
-Jul  2 17:44:19 syslogsrv rootsh-020: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020) to /var/log/rootsh/usr1234.20040702174419.16057 
-Jul  2 17:44:21 syslogsrv rootsh-020: ws0001:~ # id 
-Jul  2 17:44:21 syslogsrv rootsh-020: uid=0(root) gid=0(root) groups=0(root)
-Jul  2 17:44:22 syslogsrv rootsh-020: ws0001:~ #  
-Jul  2 17:46:03 syslogsrv rootsh-020: ws0001:~ # exit 
-Jul  2 17:46:03 syslogsrv rootsh-020: exit 
-Jul  2 17:46:03 syslogsrv rootsh-020:  
-Jul  2 17:46:03 syslogsrv rootsh-020: usr1234,/dev/pts/0: closing rootsh session (rootsh-020) 
+Jul  2 17:44:19 ws0001 rootsh-020: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020) to /var/log/rootsh/usr1234.20040702174419.16057 
+Jul  2 17:44:21 ws0001 rootsh-020: ws0001:~ # id 
+Jul  2 17:44:21 ws0001 rootsh-020: uid=0(root) gid=0(root) groups=0(root)
+Jul  2 17:44:22 ws0001 rootsh-020: ws0001:~ #  
+Jul  2 17:46:03 ws0001 rootsh-020: ws0001:~ # exit 
+Jul  2 17:46:03 ws0001 rootsh-020: exit 
+Jul  2 17:46:03 ws0001 rootsh-020:  
+Jul  2 17:46:03 ws0001 rootsh-020: usr1234,/dev/pts/0: closing rootsh session (rootsh-020) 
 
 
 How it works:
