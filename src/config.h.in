@@ -6,6 +6,9 @@
 /* default shell */
 #undef DEFAULTSHELL
 
+/* system doesnt use /etc/shells */
+#undef HAS_ETC_SHELLS
+
 /* /dev/ptc found. this should be aix */
 #undef HAVE_AIX_PTY
 

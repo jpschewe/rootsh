@@ -2909,6 +2909,28 @@ fi
 
 
 
+etcshells=
+echo "$as_me:$LINENO: checking for /etc/shells" >&5
+echo $ECHO_N "checking for /etc/shells... $ECHO_C" >&6
+if test -f /etc/shells; then
+  echo "$as_me:$LINENO: result: found" >&5
+echo "${ECHO_T}found" >&6
+
+cat >>confdefs.h <<\_ACEOF
+#define HAS_ETC_SHELLS 1
+_ACEOF
+
+else
+  echo "$as_me:$LINENO: result: not found" >&5
+echo "${ECHO_T}not found" >&6
+
+cat >>confdefs.h <<\_ACEOF
+#define HAS_ETC_SHELLS 0
+_ACEOF
+
+fi
+
+
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -4620,6 +4642,7 @@ fi
 fi
 done
 
+adl_FUNC_BASENAME
 
 for ac_func in setusershell
 do

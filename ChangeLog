@@ -56,3 +56,8 @@
 	* applied Joel Fredrikson's OSC-patch 
 	* added defaultshell to -V diagnostics
 	* added conditional compilation of write2syslog.c
+
+2004-12-16 Gerhard Lausser <gerhard.lausser@consol.de>
+	* finally found the bug that caused random coredumps in hpux
+	* added conditional compilation of basename.c (for cygwin)
+	* added tampering detection code in endlogging()
