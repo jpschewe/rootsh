@@ -204,11 +204,7 @@ void write2syslog(const char *optr, size_t optrLength) {
     /* skip a following \n if rflag is set */
     rflag = 1;                             
     /* allocate space for the line (exclude the found \r) plus space for a \0 */
-#ifdef LINECNT
-    eptr = malloc(lptr - tptr + 1 + 4);        
-#else
     eptr = malloc(lptr - tptr + 1);        
-#endif
     /* copy everything except the \r */
     memcpy(eptr, tptr, lptr - tptr);       
     /* make a c string from it */
@@ -217,14 +213,11 @@ void write2syslog(const char *optr, size_t optrLength) {
     stripesc(eptr);
     /* send the resulting line to syslog */                        
 #ifdef LINECNT
-    sprintf(linecntstr, "%03d ", linecnt++);
-    if (linecnt == 101) {
-      linecnt = 0;
-    }
-    memmove(eptr + 4, eptr, strlen(eptr) + 1);
-    memcpy(eptr, linecntstr, 4);
-#endif
+    syslog(LOG_LOCAL5|LOG_NOTICE, "%03d: %s", linecnt++, eptr);
+    if (linecnt == 101) linecnt = 0;
+#else
     syslog(LOG_LOCAL5|LOG_NOTICE, "%s", eptr);
+#endif
     /* release the escape-free buffer */
     free(eptr);
     if ((lptr == rptr + rptrLength - 1) && (*lptr == '\r')) {
