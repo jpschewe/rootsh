@@ -86,6 +86,8 @@ or network problems).
 Finished session's logfiles get ".closed" appended to their names. This 
 helps you cleanng and archiving your logdir.
 
+There is a parameter "-i", which tells rootsh to run the shell as a login shell.
+
 
 How it works:
 =============

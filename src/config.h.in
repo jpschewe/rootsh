@@ -90,6 +90,12 @@
 /* directory for session protocols */
 #undef LOGDIR
 
+/* enable logging to a file */
+#undef LOGTOFILE
+
+/* also logging to syslog */
+#undef LOGTOSYSLOG
+
 /* aix style pty master */
 #undef MASTERPTYDEV
 
@@ -125,9 +131,6 @@
 
 /* Description */
 #undef SUPPLY_SIGSET_PROTO
-
-/* also logging to syslog */
-#undef SYSLOGALL
 
 /* syslog facility */
 #undef SYSLOGFACILITY

@@ -79,7 +79,7 @@ int beginlogging(void);
 void endlogging(void);
 void version(void);
 void usage(void);
-#ifdef SYSLOGALL
+#ifdef LOGTOSYSLOG
 extern void write2syslog(const void *oBuffer, size_t oCharCount);
 #endif
 #ifndef HAVE_FORKPTY
@@ -104,6 +104,7 @@ int main(int argc, char **argv) {
   char *shell;
   fd_set readmask;
   int i, n, nfd, childPid;
+  int useLoginShell = 0;
   char buf[BUFSIZ];
 
   /* 
@@ -120,6 +121,9 @@ int main(int argc, char **argv) {
     }
     if (strcmp (argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
       version();
+    }
+    if (strcmp (argv[i], "-i") == 0 || strcmp(argv[i], "--login") == 0) {
+      useLoginShell = 1;
     }
   }
  
@@ -160,9 +164,19 @@ int main(int argc, char **argv) {
   if (childPid == 0) {
     /* 
     //  execute the shell 
+    //  if rootsh was called with the -i parameter (initial login)
+    //  then prepend the shell's basename with a dash.
+    //  otherwise call it as interactive shell.
     */
-    execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
-    perror("rootsh");
+    if (useLoginShell) {
+      dashShell = strdup(shell);
+      dashShell = strrcht(dashShell, '/');
+      dashShell[0] = '-';
+      execl(shell, dashShell, 0);
+    } else {
+      execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
+    }
+    perror(progName);
   } else {
     /* 
     //  handle these signals (posix functions preferred) 
@@ -271,12 +285,14 @@ int main(int argc, char **argv) {
         if ((n = read(masterPty, buf, sizeof(buf))) <= 0) {
           finish(0);
         } else {
+#ifdef LOGTOFILE
           fwrite(buf, sizeof(char), n, logFile);
           fflush(logFile);    
-#ifdef SYSLOGALL
+#endif
+#ifdef LOGTOSYSLOG
           write2syslog(buf, n);
 #endif    
-          write(1, buf, n);
+          write(STDIN_FILENO, buf, n);
         }
       }
     }
@@ -292,12 +308,23 @@ int main(int argc, char **argv) {
 */
 
 void finish(int sig) {
-    /* restore original tty modes */
-    if (tcsetattr(0, TCSANOW, &termParams) < 0)
-        perror("tcsetattr: stdin");
-    endlogging();
-    close(masterPty);
-    exit(EXIT_SUCCESS);
+  int sec, min, hour, day, month, year, msglen;
+  char msgbuf[BUFSIZ];
+  /* restore original tty modes */
+  if (tcsetattr(0, TCSANOW, &termParams) < 0)
+      perror("tcsetattr: stdin");
+#ifdef LOGTOSYSLOG
+  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
+      "%s session interrupted by signal %d", basename(progName), sig);
+#endif
+#ifdef LOGTOFILE
+  msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+      "%s session interrupted by signal %d", basename(progName), sig;
+  fwrite(msgbuf, sizeof(char), msglen, logFile);
+#endif
+  endlogging();
+  close(masterPty);
+  exit(EXIT_SUCCESS);
 }
 
 
@@ -333,8 +360,14 @@ int beginlogging(void) {
   int sec, min, hour, day, month, year, msglen;
   char msgbuf[BUFSIZ];
 
+#ifdef LOGTOFILE
   /*
-  //  construct the logfile name. 
+  //  Construct the logfile name. 
+  //  LOGDIR/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
+  //  When the session is over, the logfile will be renamed 
+  //  to <logfile>.closed.
+  //  If we don't log to a file at all, don't mention 
+  //  a filename in the syslog logs.
   */
   now = time(NULL);
   year = localtime(&now)->tm_year + 1900;
@@ -349,7 +382,6 @@ int beginlogging(void) {
        strrchr(sessionId, '-') + 1);
   snprintf(closedLogFileName, (sizeof(closedLogFileName) - 1),
       "%s.closed", logFileName);
-
   /* 
   //  Open the logfile 
   */
@@ -357,18 +389,6 @@ int beginlogging(void) {
     perror(logFileName);
     return(0);
   }
-#ifdef SYSLOGALL
-  /* 
-  //  Prepare usage of syslog with sessionid as prefix 
-  */
-  openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
-  /* 
-  //  Note the log file name in syslog 
-  */
-  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-      "%s,%s: logging new session (%s) to %s", 
-      userName, ttyname(0), sessionId, logFileName);
-#endif
   /* 
   //  Note the start time in the log file 
   */
@@ -377,9 +397,26 @@ int beginlogging(void) {
        basename(progName), userName, ttyname(0), ctime(&now)); 
   fwrite(msgbuf, sizeof(char), msglen, logFile);
   fflush(logFile);
+#endif
+#ifdef LOGTOSYSLOG
+  /* 
+  //  Prepare usage of syslog with sessionid as prefix 
+  */
+  openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
+  /* 
+  //  Note the log file name in syslog if there is one
+  */
+  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
+#ifdef LOGTOFILE
+      "%s,%s: logging new session (%s) to %s", 
+      userName, ttyname(0), sessionId, logFileName);
+#else
+      "%s,%s: logging new session (%s)", 
+      userName, ttyname(0), sessionId);
+#endif
+#endif
   return(1);
 }
-
 
 
 /* 
@@ -393,12 +430,13 @@ void endlogging() {
   int msglen;
   char msgbuf[BUFSIZ];
 
-#ifdef SYSLOGALL
+#ifdef LOGTOSYSLOG
   write2syslog("\r\n", 2);
   syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
       userName, ttyname(0), basename(progName), sessionId);
   closelog();
 #endif
+#ifdef LOGTOFILE
   now = time(NULL);
   msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
       "%s session closed for %s on %s at %s", basename(progName),
@@ -406,6 +444,7 @@ void endlogging() {
   fwrite(msgbuf, sizeof(char), msglen, logFile);
   fclose(logFile);
   rename(logFileName, closedLogFileName);
+#endif
 }
 
   
@@ -457,7 +496,7 @@ char *setupshell() {
   }
   if (shell == NULL) {
     fprintf(stderr, "could not determine a valid shell\n");
-#ifdef SYSLOGALL
+#ifdef LOGTOSYSLOG
     syslog(SYSLOGFACILITY | LOG_WARNING, "%s,%s: has no valid shell", 
         userName, ttyname(0));
 #endif
@@ -477,7 +516,7 @@ char *setupshell() {
     */
     if (isvalid == 0) {
       fprintf(stderr, "%s is not in /etc/shells\n", shell);
-#ifdef SYSLOGALL
+#ifdef LOGTOSYSLOG
       syslog(SYSLOGFACILITY | LOG_WARNING, "%s,%s: %s is not in /etc/shells", 
           userName, ttyname(0), shell);
 #endif
@@ -645,7 +684,7 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
     //  no need for these in the slave process 
     */
     close(master);
-#ifdef SYSLOGALL
+#ifdef LOGTOSYSLOG
     closelog();
 #endif
     fclose(logFile);
@@ -686,9 +725,11 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
 #endif
 
 void version() {
-  printf("%s version %s\nlogfiles go to directory %s\n", 
-      basename(progName), VERSION, LOGDIR);
-#ifdef SYSLOGALL
+  printf("%s version %s\n", basename(progName),VERSION);
+#ifdef LOGTOFILE
+  printf("logfiles go to directory %s\n", LOGDIR);
+#endif
+#ifdef LOGTOSYSLOG
   printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
 #else
   printf("no syslog logging\n");
