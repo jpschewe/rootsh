@@ -9,9 +9,6 @@
 /* system doesnt use /etc/shells */
 #undef HAS_ETC_SHELLS
 
-/* /dev/ptc found. this should be aix */
-#undef HAVE_AIX_PTY
-
 /* Define to 1 if you have the `basename' function. */
 #undef HAVE_BASENAME
 
@@ -33,6 +30,9 @@
 /* Define to 1 if you have the `getopt_long' function. */
 #undef HAVE_GETOPT_LONG
 
+/* Define to 1 if you have the `getusershell' function. */
+#undef HAVE_GETUSERSHELL
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -47,9 +47,6 @@
 
 /* Define to 1 if you have the <pty.h> header file. */
 #undef HAVE_PTY_H
-
-/* Define to 1 if you have the `setusershell' function. */
-#undef HAVE_SETUSERSHELL
 
 /* Define to 1 if you have the `sigaction' function. */
 #undef HAVE_SIGACTION
@@ -114,8 +111,11 @@
 /* also logging to syslog */
 #undef LOGTOSYSLOG
 
-/* aix style pty master */
+/* lets see what happens */
 #undef MASTERPTYDEV
+
+/* maximum size of a logfile in bytes */
+#undef MAXLOGFILESIZE
 
 /* need my own prototype */
 #undef NEED_GETUSERSHELL_PROTO

@@ -296,7 +296,7 @@ int main(int argc, char **argv) {
       }
   }
 
-  snprintf(sessionId, sizeof(sessionId), "%s-%04x", 
+  snprintf(sessionId, sizeof(sessionId), "%s[%05x]", 
      *progName == '-' ? progName + 1 : progName, getpid());
 
   standalone = ((getenv("SUDO_USER") == NULL) ? 1 : 0);
@@ -584,9 +584,9 @@ int beginlogging(void) {
     min = localtime(&now)->tm_min;
     sec = localtime(&now)->tm_sec;
     snprintf(defLogFileName, (sizeof(logFileName) - 1), 
-        "%s.%04d%02d%02d%02d%02d%02d.%s", 
+        "%s.%04d%02d%02d%02d%02d%02d.%5s", 
          userName, year,month, day, hour, min, sec,
-         strrchr(sessionId, '-') + 1);
+         strrchr(sessionId, '[') + 1);
     if (standalone) {
       if (userLogFileName && userLogFileDir) {
         snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
@@ -1255,7 +1255,7 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
       return(-1);
     }
 
-#ifndef HAVE_AIX_PTY
+#ifndef AIX_COMPAT
     /*
     //  Push the pseudo-terminal emulation module.
     */

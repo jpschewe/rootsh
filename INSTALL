@@ -90,8 +90,8 @@ Step 5. Configure your installation
 Step 6. Build the binaries.
 
 	This is the easy part, type "make".
-	It worked for me on Linux 2.4, SunOS5.9, HP-UX11.11, AIX 5 and
-	FreeBSD 5.2.1
+	It worked for me on Linux 2.4, SunOS5.9, HP-UX11.11, AIX 5,
+	FreeBSD 5.2.1 and IRIX 6.5
 
 	
 Step 7. Install the components.

@@ -62,3 +62,8 @@
 	* finally found the bug that caused random coredumps in hpux
 	* added conditional compilation of basename.c (for cygwin)
 	* added a lot of comments to the code
+
+2005-02-11 Gerhard Lausser <gerhard.lausser@consol.de>
+	* added irix support
+	* changed syslog message format (rootsh[5-hex-digits]: ...)
+	* released as 1.5.1
