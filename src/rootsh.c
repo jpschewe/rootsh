@@ -266,6 +266,11 @@ int beginlogging(void) {
   char logFileName[MAXPATHLEN], msgbuf[BUFSIZ];
   pid_t pid;
 
+  /* create a session identifier which helps you identify the lines
+     which belong to the same session when browsing large logfiles.
+     also used in the logfiles name */
+  srand((unsigned)time(NULL));  
+  sprintf(sessionId, "%s-%03x", basename(progName), rand() % 4096);
   /* construct the logfile name. */
   pid = getpid(); 
   now = time(NULL);
@@ -276,8 +281,9 @@ int beginlogging(void) {
   min = localtime(&now)->tm_min;
   sec = localtime(&now)->tm_sec;
   snprintf(logFileName, (sizeof(logFileName) - 1), 
-      "%s/%s.%04d%02d%02d%02d%02d%02d.%d", 
-       LOGDIR, userName, year,month, day, hour, min, sec, (int)pid);  
+      "%s/%s.%04d%02d%02d%02d%02d%02d.%s", 
+       LOGDIR, userName, year,month, day, hour, min, sec, 
+       strrchr(sessionId, '-') + 1);
 
   /* Open the logfile */
   if ((logFile = fopen(logFileName, "w")) == NULL) {
@@ -285,21 +291,17 @@ int beginlogging(void) {
     return(0);
   }
 #ifdef SYSLOGALL
-  /* create a session identifier which helps you identify the lines
-     which belong to the same session when browsing large logfiles */
-  srand((unsigned)time(NULL));  
-  sprintf(sessionId, "%s-%03x", basename(progName), rand() % 1000);
   /* Prepare usage of syslog with sessionid as prefix */
   openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
   /* Note the log file name in syslog */
-  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: logging new session (%s) to %s", 
-         userName, ttyname(0), sessionId, logFileName);
+  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s,%d: logging new session (%s) to %s", 
+         userName, ttyname(0), (int)pid, sessionId, logFileName);
 #endif
 
   /* Note the start time in the log file */
   msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session opened for %s on %s at %s", 
-       basename(progName), userName, ttyname(0), ctime(&now)); 
+      "%s session (pid %d) opened for %s on %s at %s", 
+       basename(progName), (int)pid, userName, ttyname(0), ctime(&now)); 
   fwrite(msgbuf, sizeof(char), msglen, logFile);
   fflush(logFile);
   return(1);
