@@ -26,5 +26,6 @@
 	* added a small patch for FreeBSD
 
 2004-11-15 Gerhard Lausser <gerhard.lausser@consol.de>
+	* created release 1.0. it's long enough in production
 	* closed logfiles get ".closed" appended to their name.
 
