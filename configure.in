@@ -156,6 +156,18 @@ AC_PROG_CC(gcc cc)
 
 dnl  ----- enable --enable-static
 
+dnl  ----- Figure out if /etc/shells is in use
+etcshells=
+AC_MSG_CHECKING(for /etc/shells)
+if test -f /etc/shells; then
+  AC_MSG_RESULT(found)
+  AC_DEFINE(HAS_ETC_SHELLS, 1,[system uses /etc/shells])
+else
+  AC_MSG_RESULT(not found)
+  AC_DEFINE(HAS_ETC_SHELLS, 0,[system doesnt use /etc/shells])
+fi
+
+
 dnl  ----- Figure out if ansi headers are available
 AC_HEADER_STDC
 
@@ -175,6 +187,8 @@ dnl  ----- Find functions
 AC_CHECK_FUNCS(forkpty,, AC_CHECK_LIB(util,forkpty, [AC_DEFINE(HAVE_FORKPTY)] [LIBS="$LIBS -lutil"]))
 dnl check for getopt in standard library
 adl_FUNC_GETOPT_LONG
+dnl check for basename in standard library
+adl_FUNC_BASENAME
 dnl  ----- Solaris for example has no own prototypes for xxxusershell
 dnl - AC_DEFINE(NEED_GETUSERSHELL_PROTO,,[Solaris for example has no own prototypes for xxxusershell])
 AC_CHECK_FUNCS(setusershell, have_setusershell=yes)

@@ -2,6 +2,8 @@
 
 rootsh - a logging shell wrapper for root wannabes
 
+rootsh.c contains the main program and it's utility functions
+
 Copyright (C) 2004 Gerhard Lausser
 
 This program is free software; you can redistribute it and/or
@@ -77,7 +79,7 @@ void endusershell(void);
 */
 void finish(int);
 char *whoami(void);
-char *setupusername(void);
+char *setupusername(char *);
 char *setupshell(void);
 int setupusermode(void);
 int setupstandalonemode(void);
@@ -126,7 +128,7 @@ int logtosyslog = 1;
 #endif
 struct termios termParams, newTty;
 struct winsize winSize;
-char *userName;                        /* the name of the calling user */
+char *userName = NULL;                 /* the name of the calling user */
 char *runAsUser = NULL;                /* the user running the shell   */
 pid_t runAsUserPid;                    /* this user's pid              */
 int standalone;                        /* called by sudo or not?       */
@@ -135,7 +137,7 @@ int isaLoginShell = 0;                 /* rootsh was called by login   */
 
 
 int main(int argc, char **argv, char **envp) {
-  char *shell, *dashShell;
+  char *shell = NULL, *dashShell = NULL;
   char *sucmd = SUCMD;
   fd_set readmask;
   int n, nfd, childPid;
@@ -157,7 +159,7 @@ int main(int argc, char **argv, char **envp) {
   /* 
   //  this should be rootsh, but it could have been renamed 
   */
-  strncpy(progName, argv[0], (MAXPATHLEN - 1));
+  strncpy(progName, basename(argv[0]), (MAXPATHLEN - 1));
 
   while (1) {
     c = getopt_long (argc, argv, "hViu:f:d:xy",
@@ -172,7 +174,7 @@ int main(int argc, char **argv, char **envp) {
           shellCommands = calloc(sizeof(char), 1);
         }
         shellCommands = realloc(shellCommands, 
-            strlen(shellCommands) + strlen(argv[optind]) + 1);
+            strlen(shellCommands) + strlen(argv[optind]) + 2);
         strcat(shellCommands, argv[optind]);
         strcat(shellCommands, " ");
         optind++;
@@ -209,15 +211,33 @@ int main(int argc, char **argv, char **envp) {
         usage ();
       }
   }
-
+/*
+fprintf(stderr, "shell=:%s:\ndashShell=:%s:\nsucmd=:%s:\nshellCommands=:%s:\nsessionId=:%s:\n-------------------------------------\n",
+    (shell == NULL) ? "..." : shell, (dashShell == NULL) ? "..." : dashShell, 
+    (sucmd == NULL) ? "..." : sucmd, 
+    (shellCommands == NULL)? "..." : shellCommands,
+    (sessionId == NULL) ? "..." : sessionId);
+*/
   if (! createsessionid()) {
     exit(EXIT_FAILURE);
   }
-
-  if ((userName = setupusername()) == NULL) {
+/*
+fprintf(stderr, "shell=:%s:\ndashShell=:%s:\nsucmd=:%s:\nshellCommands=:%s:\nsessionId=:%s:\n-------------------------------------\n",
+    (shell == NULL) ? "..." : shell, (dashShell == NULL) ? "..." : dashShell, 
+    (sucmd == NULL) ? "..." : sucmd, 
+    (shellCommands == NULL)? "..." : shellCommands,
+    (sessionId == NULL) ? "..." : sessionId);
+*/
+  if ((userName = setupusername(shellCommands)) == NULL) {
     exit(EXIT_FAILURE);
   }
-
+/*
+fprintf(stderr, "shell=:%s:\ndashShell=:%s:\nsucmd=:%s:\nshellCommands=:%s:\nsessionId=:%s:\n-------------------------------------\n",
+    (shell == NULL) ? "..." : shell, (dashShell == NULL) ? "..." : dashShell, 
+    (sucmd == NULL) ? "..." : sucmd, 
+    (shellCommands == NULL)? "..." : shellCommands,
+    (sessionId == NULL) ? "..." : sessionId);
+*/
   if (! setupusermode()) {
     exit(EXIT_FAILURE);
   }
@@ -427,10 +447,10 @@ void finish(int sig) {
       perror("tcsetattr: stdin");
   if (sig == 0) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session ended by user\r\n", basename(progName));
+        "\n*** %s session ended by user\r\n", progName);
   } else {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session interrupted by signal %d\r\n", basename(progName), sig);
+        "\n*** %s session interrupted by signal %d\r\n", progName, sig);
   }
   dologging(msgbuf, msglen);
   endlogging();
@@ -453,8 +473,7 @@ int createsessionid(void) {
   //  the process number is always unique
   */
   snprintf(sessionId, sizeof(sessionId), "%s-%04x", 
-     *(basename(progName)) == '-' ? basename(progName) + 1 : basename(progName),
-     getpid());
+     *progName == '-' ? progName + 1 : progName, getpid());
   return(1);
 }
   
@@ -545,9 +564,8 @@ int beginlogging(void) {
     //  Note the start time in the log file 
     */
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "%s %s session opened for %s as %s on %s at %s", 
-         isaLoginShell ? "login" : "",
-         basename(progName), userName, 
+        "%s%s session opened for %s as %s on %s at %s", 
+         isaLoginShell ? "login " : "", progName, userName, 
          runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
          ttyname(0), ctime(&now)); 
     write(logFile, msgbuf, msglen);
@@ -620,8 +638,7 @@ void endlogging() {
     now = time(NULL);
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
         "%s session closed for %s on %s at %s", 
-        *(basename(progName)) == '-' ? 
-        basename(progName) + 1 : basename(progName),
+        *progName == '-' ? progName + 1 : progName,
         userName, ttyname(0), ctime(&now)); 
     write(logFile, msgbuf, msglen);
     /*
@@ -700,7 +717,7 @@ void endlogging() {
   if (logtosyslog) {
     write2syslog("\r\n", 2);
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
-        userName, ttyname(0), basename(progName), sessionId);
+        userName, ttyname(0), progName, sessionId);
     closelog();
   }
 #endif
@@ -769,9 +786,24 @@ int forceopen(char *path) {
 //  find out the username of the calling user
 */
 
-char *setupusername() {
+char *setupusername(char *shcmd) {
   char *userName = NULL;
   struct stat ttybuf;
+
+/*
+fprintf(stderr, "enter getlogin with sc :%s: and ttx :%s:\n", shcmd, ttyname(STDIN_FILENO));
+*/
+/*
+if(isatty(STDIN_FILENO)) {
+fprintf(stderr, "its a tty\n");
+}
+if (ttyname(STDIN_FILENO) == NULL) {
+fprintf(stderr, "ttyname is null\n");
+}
+if (getlogin() == NULL) {
+fprintf(stderr, "getlogin is null\n");
+}
+*/
   if((userName = getlogin()) == NULL) {
     /* 
     //  HP-UX returns NULL here so we take the controlling terminal's owner 
@@ -800,7 +832,7 @@ char *setupusername() {
 */ 
 
 char *setupshell() {
-  int isvalid = 0;
+  int isvalid;
   char *shell, *shellenv;
   char *validshell;
   
@@ -813,15 +845,20 @@ char *setupshell() {
   if (shell == NULL) {
     fprintf(stderr, "could not determine a valid shell\n");
   } else {
-    /* 
+#if HAS_ETC_SHELLS
+    /*
     //  compare it to the allowed shells in /etc/shells 
     */
+    isvalid = 0;
     for (setusershell(), validshell = getusershell(); validshell && ! isvalid; validshell = getusershell()) {
       if (strcmp(validshell, shell) == 0) {
         isvalid = 1;
       }
     }
     endusershell();
+#else
+    isvalid = 1;
+#endif
 
     /* 
     //  do not allow invalid shells 
@@ -834,7 +871,7 @@ char *setupshell() {
     //  if SHELL is /bin/rootsh and argv[0] is -rootsh we were probably
     //  started as a commandline interpreter found in /etc/passwd
     */
-    if (progName[0] == '-' && ! strcmp(basename(shell), progName + 1)) {
+    if (*progName == '-' && ! strcmp(basename(shell), progName + 1)) {
       shell = calloc(sizeof(char), strlen(defaultshell()) + 1);
       strcpy(shell, defaultshell());
       shellenv = calloc(sizeof(char), strlen(shell) + 7);
@@ -876,7 +913,7 @@ int setupusermode(void) {
     } else {
       runAsUserPid = pass->pw_uid;
       saveenv("TERM");
-#ifdef CLEARENV_FOUND
+#if HAVE_CLEARENV
       clearenv();
 #else
       environ = NULL;
@@ -1180,7 +1217,7 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
 #endif
 
 void version() {
-  printf("%s version %s\n", basename(progName),VERSION);
+  printf("%s version %s\n", progName,VERSION);
 #ifdef LOGTOFILE
   printf("logfiles go to directory %s\n", LOGDIR);
 #endif
@@ -1199,7 +1236,7 @@ void version() {
 #endif
 #ifdef DEFAULTSHELL
   printf("%s can be used as login shell. %s will interpret your commands\n",
-      basename(progName), DEFAULTSHELL);
+      progName, DEFAULTSHELL);
 #endif
   exit(0);
 }
@@ -1214,6 +1251,6 @@ void usage() {
     " -d, --logdir=DIR      directory for your logfile (standalone only)\n"
     " --no-logfile          switch off logging to a file (standalone only)\n"
     " --no-syslog           switch off logging to syslog (standalone only)\n"
-    " -V, --version         show version statement\n", basename(progName));
+    " -V, --version         show version statement\n", progName);
   exit(0);
 }

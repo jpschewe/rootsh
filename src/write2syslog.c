@@ -2,6 +2,9 @@
 
 rootsh - a logging shell wrapper for root wannabes
 
+write2syslog.c handles the buffered transmission of escape-character-free
+lines to the syslog daemon
+
 Copyright (C) 2004 Gerhard Lausser 
 
 This program is free software; you can redistribute it and/or

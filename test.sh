@@ -1,6 +1,7 @@
 #!/bin/sh
 
 RM=`whereis rm|awk -F: '{print $2}'|awk '{print $1}'`
+RM=rm
 
 ${RM} test.log
 touch test.log
@@ -74,21 +75,21 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ]; then
     echo "OK make $PARMS" >> test.log
     ${RM} -rf lolo*
-    src/rootsh -i --logfile=lolo -- "ls -l test.sh"
+    src/rootsh -i --logfile=lolo -- ls -l test.sh
     if { grep test.sh lolo.closed; }; then
       echo "OK run simple" >> test.log
     else
       echo "FAIL run simple" >> test.log
     fi
     ${RM} -rf lolo*
-    src/rootsh -i --logfile=lolo -- "${RM} lolo"
+    src/rootsh -i --logfile=lolo -- ${RM} lolo
     if [ -f lolo.tampered ] && { grep DELETE lolo.tampered; }; then
       echo "OK run tampered ${RM}" >> test.log
     else
       echo "FAIL run tampered ${RM}" >> test.log
     fi
     ${RM} -rf lolo*
-    src/rootsh -i --logfile=lolo -- "mv lolo lololo"
+    src/rootsh -i --logfile=lolo -- mv lolo lololo
     if [ -f lolo.tampered ] && { grep DELETE lolo.tampered; }; then
       echo "OK run tampered mv" >> test.log
     else
