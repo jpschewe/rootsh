@@ -42,6 +42,7 @@ product
                 revision 0.2
 
                 file -u 266 -g bin -o bin bin/rootsh /usr/bin/rootsh
+		file -u 333 -g bin -o bin man/rootsh.1 /usr/man/man1/rootsh.1
                 postinstall rootsh.postinstall
                 postremove rootsh.postremove
         end

@@ -14,6 +14,10 @@ chown root:system /var/adm/rootsh
 if [ -f /usr/bin/rootsh ]; then
   chown bin:bin /usr/bin/rootsh
   chmod 500 /usr/bin/rootsh
+  if [ -f /usr/share/man/man1/rootsh.1 ]; then
+    chmod 644 /usr/share/man/man1/rootsh.1
+    chown bin:bin /usr/share/man/man1/rootsh.1
+  fi
   exit 0
 else
   echo where is /usr/bin/rootsh

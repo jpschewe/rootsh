@@ -1,4 +1,4 @@
 i pkginfo=./pkginfo
 i postinstall=./postinstall
 f none /usr/bin/rootsh=bin/rootsh 0511 root bin
-
+f none /usr/share/man/man1/rootsh.1=man/rootsh.1 0444 root bin

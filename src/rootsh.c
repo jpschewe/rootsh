@@ -125,11 +125,24 @@ int standalone;                        /* called by sudo or not?       */
 
 int main(int argc, char **argv, char **envp) {
   char *shell, *dashShell;
+  char *sucmd = SUCMD;
   fd_set readmask;
   int n, nfd, childPid;
   int useLoginShell = 0;
   char buf[BUFSIZ];
-  int c;
+  char *shellCommands = NULL;
+  int c, option_index = 0;
+  static struct option long_options[] = {
+      {"help", 0, 0, 'h'},
+      {"version", 0, 0, 'V'},
+      {"user", 1, 0, 'u'},
+      {"initial", 0, 0, 'i'},
+      {"logfile", 1, 0, 'f'},
+      {"logdir", 1, 0, 'd'},
+      {"no-logfile", 0, 0, 'x'},
+      {"no-syslog", 0, 0, 'y'},
+      {0, 0, 0, 0}
+  };
 
   /* 
   //  this should be rootsh, but it could have been renamed 
@@ -137,22 +150,25 @@ int main(int argc, char **argv, char **envp) {
   strncpy(progName, argv[0], (MAXPATHLEN - 1));
 
   while (1) {
-    static struct option long_options[] = {
-        {"help", 0, 0, 'h'},
-        {"version", 0, 0, 'V'},
-        {"user", 1, 0, 'u'},
-        {"initial", 0, 0, 'i'},
-        {"logfile", 1, 0, 'f'},
-        {"logdir", 1, 0, 'd'},
-        {"no-logfile", 0, 0, 'x'},
-        {"no-syslog", 0, 0, 'y'},
-        {0, 0, 0, 0}
-    };
-    int option_index = 0;
     c = getopt_long (argc, argv, "hViu:f:d:xy",
         long_options, &option_index);
-    if (c == -1)
+    if (c == -1) {
+      /*
+      //  arguments not belonging to known switches are treated
+      //  as commands which will be passed to the shell
+      */
+      while (optind < argc) {
+        if (! shellCommands) {
+          shellCommands = calloc(sizeof(char), 1);
+        }
+        shellCommands = realloc(shellCommands, 
+            strlen(shellCommands) + strlen(argv[optind]) + 1);
+        strcat(shellCommands, argv[optind]);
+        strcat(shellCommands, " ");
+        optind++;
+      }
       break;
+    }
     switch (c) {
       case 'h':		
       case '?':
@@ -229,27 +245,42 @@ int main(int argc, char **argv, char **envp) {
   }
   if (childPid == 0) {
     /* 
-    //  execute the shell 
+    //  this process will exec a shell
+    */
+    /*
+    //  if rootsh was called with the -u user parameter, we will exec
+    //  su user instead of a shell
+    */
+    if (runAsUser) {
+      shell = sucmd;
+    }
+    /*
     //  if rootsh was called with the -i parameter (initial login)
     //  then prepend the shell's basename with a dash.
     //  otherwise call it as interactive shell.
     */
-    if (runAsUser) {
-      if (useLoginShell) {
-        execl(SUCMD, (strrchr(SUCMD, '/') + 1), "-", runAsUser, 0);
-      } else {
-        execl(SUCMD, (strrchr(SUCMD, '/') + 1), runAsUser, 0);
-      }
-      perror(SUCMD);
+    if (useLoginShell) {
+      dashShell = strdup(shell);
+      dashShell = strrchr(dashShell, '/');
+      dashShell[0] = '-';
+    }
+    if (runAsUser && useLoginShell && shellCommands) {
+      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0);
+    } else if (runAsUser && useLoginShell && !shellCommands) {
+      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, 0);
+    } else if (runAsUser && !useLoginShell && shellCommands) {
+      execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, 0);
+    } else if (runAsUser && !useLoginShell && !shellCommands) {
+      execl(shell, (strrchr(shell, '/') + 1), runAsUser, 0);
+    } else if (!runAsUser && useLoginShell && shellCommands) {
+      execl(shell, dashShell, "-c", shellCommands, 0);
+    } else if (!runAsUser && useLoginShell && !shellCommands) {
+      execl(shell, dashShell, 0);
+    } else if (!runAsUser && !useLoginShell && shellCommands) {
+      execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, 0);
+    } else if (!runAsUser && !useLoginShell && !shellCommands) {
+      execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
     } else {
-      if (useLoginShell) {
-        dashShell = strdup(shell);
-        dashShell = strrchr(dashShell, '/');
-        dashShell[0] = '-';
-        execl(shell, dashShell, 0);
-      } else {
-        execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
-      }
       perror(shell);
     }
     perror(progName);
@@ -414,7 +445,7 @@ int createsessionid(void) {
   //  the process number is always unique
   */
   pid = getpid();
-  sprintf(sessionId, "%s-%04x", basename(progName), pid);
+  snprintf(sessionId, sizeof(sessionId), "%s-%04x", basename(progName), pid);
   return(1);
 }
   

@@ -1,2 +1,1 @@
-- more session identifier uniqueness by first looking if a logfile
-  with the same identifier already exists
+- waiting for bug reports
