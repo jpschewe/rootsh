@@ -141,6 +141,82 @@ AC_TRY_COMPILE([#include <signal.h>],
     AC_MSG_RESULT(no))
 AC_TYPE_SIGNAL
 
+dnl ----- Look for header that defines select() and fd_set.
+AC_MSG_CHECKING([select() and fd_set in sys/select.h and sys/bsdtypes.h])
+AC_TRY_COMPILE([#include <stdlib.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <sys/types.h>],
+  [fd_set fds;
+select(0, NULL, NULL, NULL, NULL);], xpdf_ok=yes, xpdf_ok=no)
+if test $xpdf_ok = yes; then
+  AC_MSG_RESULT([not needed])
+else
+  AC_TRY_COMPILE([#include <stdlib.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/select.h>],
+    [fd_set fds;
+select(0, NULL, NULL, NULL, NULL);], xpdf_ok=yes, xpdf_ok=no)
+  if test $xpdf_ok = yes; then
+    AC_DEFINE(HAVE_SYS_SELECT_H, ,[we have a sys/select.h])
+    AC_MSG_RESULT([need sys/select.h])
+  else
+    AC_TRY_COMPILE([#include <stdlib.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/bsdtypes.h>],
+      [fd_set fds;
+select(0, NULL, NULL, NULL, NULL);], xpdf_ok=yes, xpdf_ok=no)
+    if test $xpdf_ok = yes; then
+      AC_DEFINE(HAVE_SYS_BSDTYPES_H, , [we have a sys/bsdtypes.h])
+      AC_MSG_RESULT([need sys/bsdtypes.h])
+    else
+      AC_MSG_RESULT([problem])
+    fi
+  fi
+fi
+
+dnl ----- Look for header that defines FD_ZERO.
+AC_MSG_CHECKING([FD_ZERO and strings.h or bstring.h])
+AC_TRY_COMPILE([#include <stdlib.h>
+#include <sys/types.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif],
+[fd_set fds; FD_ZERO(&fds);], xpdf_ok=yes, xpdf_ok=no)
+if test $xpdf_ok = yes; then
+  AC_MSG_RESULT([not needed])
+else
+  AC_TRY_COMPILE([#include <stdlib.h>
+#include <sys/types.h>
+#include <strings.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif],
+    [fd_set fds; FD_ZERO(&fds);], xpdf_ok=yes, xpdf_ok=no)
+  if test $xpdf_ok = yes; then
+    AC_DEFINE(HAVE_STRINGS_H)
+    AC_MSG_RESULT([need strings.h])
+  else
+    AC_TRY_COMPILE([#include <stdlib.h>
+#include <sys/types.h>
+#include <bstring.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif],
+      [fd_set fds; FD_ZERO(&fds);], xpdf_ok=yes, xpdf_ok=no)
+    if test $xpdf_ok = yes; then
+      AC_DEFINE(HAVE_BSTRING_H, , [we have bstring.h])
+      AC_MSG_RESULT([need bstring.h])
+    else
+      AC_MSG_RESULT([problem])
+    fi
+  fi
+fi
+
 
 
 dnl -----  pseudo terminal handling

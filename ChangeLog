@@ -1,3 +1,10 @@
 2004-06-24 Gerhard Lausser <gerhard.lausser@consol.de>
 
-	* initial release
+	* initial release 0.1
+	** since then
+	* added version() and usage() to rootsh
+	* modified pty module handling for AIX
+	* switched setupshell and beginlogging
+	* posix sigaction is now the preferred signal handling
+	* configure.in tests for sys/select.h
+

@@ -35,6 +35,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#if HAVE_SYS_SELECT_H
+#  include <sys/select.h>
+#endif
 #if HAVE_LIBGEN_H
 #  include <libgen.h>
 #endif
@@ -123,14 +126,16 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
     }
   }  
-  if (! beginlogging()) {
-    exit(EXIT_FAILURE);
-  }
+
   if ((shell = setupshell()) == NULL) {
     fprintf(stderr, "%s is not in /etc/shells\n", shell);
     exit(EXIT_FAILURE);
   }
   
+  if (! beginlogging()) {
+    exit(EXIT_FAILURE);
+  }
+
   /* save original terminal parameters */
   tcgetattr(STDIN_FILENO, &termParams);
   /*save original window size */
@@ -149,16 +154,16 @@ int main(int argc, char **argv) {
     execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
     perror("rootsh");
   } else {
-    /* handle these signals (UNIX98 simplified functions preferred) */
-#ifdef HAVE_SIGSET
-    sigset(SIGINT, finish);
-    sigset(SIGQUIT, finish);
-#elif defined(HAVE_SIGACTION)
+    /* handle these signals (posix functions preferred) */
+#if defined(HAVE_SIGACTION)
     struct sigaction action;
     memset(&action, 0, sizeof(action));
     action.sa_handler = finish;
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGQUIT, &action, NULL);
+#elif defined(HAVE_SIGSET)
+    sigset(SIGINT, finish);
+    sigset(SIGQUIT, finish);
 #else
     signal(SIGINT, finish);
     signal(SIGQUIT, finish);
