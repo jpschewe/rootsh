@@ -51,6 +51,9 @@ Step 5. Configure your installation
 	Using this option will turn off logging to a local logfile.
 	If you disable logfiles, you _must not_ also disable syslog.
 	By default logfiles are turned on.
+	If you plan to use rootsh as command line interpreter with logging 
+	for some users (7th field in /etc/passwd), you must disable logfiles.
+	This is because rootsh will be run with user privileges.
 
         --with-logdir=LOGDIR
         
