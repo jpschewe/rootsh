@@ -84,7 +84,9 @@ The counter after the session identifier can help you find holes if you
 are not sure wether logging was incomplete (either due to manipulation
 or network problems).
 Finished session's logfiles get ".closed" appended to their names. This 
-helps you cleanng and archiving your logdir.
+helps you cleaning and archiving your logdir.
+If the main process thinks, the logfile was manipulated during the session,
+it tries to recreate the file and ".tampered" instead of ".closed" is attached.
 
 There is a parameter "-i", which tells rootsh to run the shell as a login shell.
 
