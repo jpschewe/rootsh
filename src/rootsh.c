@@ -101,7 +101,7 @@ char *userName;                        /* the name of the calling user */
 
 
 int main(int argc, char **argv) {
-  char *shell;
+  char *shell, *dashShell;
   fd_set readmask;
   int i, n, nfd, childPid;
   int useLoginShell = 0;
@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
     */
     if (useLoginShell) {
       dashShell = strdup(shell);
-      dashShell = strrcht(dashShell, '/');
+      dashShell = strrchr(dashShell, '/');
       dashShell[0] = '-';
       execl(shell, dashShell, 0);
     } else {
@@ -319,7 +319,7 @@ void finish(int sig) {
 #endif
 #ifdef LOGTOFILE
   msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session interrupted by signal %d", basename(progName), sig;
+      "%s session interrupted by signal %d", basename(progName), sig);
   fwrite(msgbuf, sizeof(char), msglen, logFile);
 #endif
   endlogging();
@@ -745,6 +745,7 @@ void version() {
 void usage() {
   printf("Usage: %s [OPTION [ARG]] ...\n"
     " -?, --help            show this help statement\n"
+    " -i, --login           start a (initial) login shell\n"
     " -V, --version         show version statement\n", basename(progName));
   exit(0);
 }
