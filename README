@@ -1,0 +1,79 @@
+Introduction:
+=============
+
+rootsh is a wrapper for a shell which will make a copy of everything printed
+on your terminal. Its main purpose is to give ordinary users a shell with
+root privileges while keeping an eye on what they type. This is accomplished
+by allowing them to execute rootsh via the sudo command. Unlike a simple
+"sudo -s" which is the usual way doing this, "sudo rootsh" will send their
+terminal keystrokes and output to a logfile and eventually to a remote i
+syslog server, where they are out of reach and safe from manipulation.
+
+
+Motivation:
+===========
+
+Sometimes users need to perform tasks on a system which are too complex
+to be expressed in sudo rules. Sometimes there is management pressure
+to give a user a root shell. Sometimes you're just tired arguing with
+users who insist in having root privileges.
+With rootsh you can give your users access to a root shell while auditing
+their actions. 
+
+
+Usage:
+======
+
+rootsh will be mainly used to give normal users the privilege of a
+shell running under uid 0. This will mostly be accomplished by calling
+it via the sudo command. 
+If, for example you have to grant user usr1234 local root privileges
+on his workstation ws0001, you make an entry in your /etc/sudoers like this:
+
+usr1234		ws0001		= /bin/rootsh
+
+He will then have to type the following to become root:
+
+usr1234@ws0001:~> sudo rootsh
+Password:
+ws0001:~ # id
+uid=0(root) gid=0(root) groups=0(root)
+ws0001:~ # 
+ws0001:~ # exit
+exit
+usr1234@ws0001:~>
+
+
+Wherever you send your syslog data to, the resulting output will be
+like this:
+
+Jul  2 17:44:19 syslogsrv rootsh-020: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020) to /var/log/rootsh/usr1234.20040702174419.16057 
+Jul  2 17:44:21 syslogsrv rootsh-020: ws0001:~ # id 
+Jul  2 17:44:21 syslogsrv rootsh-020: uid=0(root) gid=0(root) groups=0(root)
+Jul  2 17:44:22 syslogsrv rootsh-020: ws0001:~ #  
+Jul  2 17:46:03 syslogsrv rootsh-020: ws0001:~ # exit 
+Jul  2 17:46:03 syslogsrv rootsh-020: exit 
+Jul  2 17:46:03 syslogsrv rootsh-020:  
+Jul  2 17:46:03 syslogsrv rootsh-020: usr1234,/dev/pts/0: closing rootsh session (rootsh-020) 
+
+
+How it works:
+=============
+
+rootsh works very much like the script utility. It forks and creates
+a master/slave pseudo terminal pair. The slave pseudo terminal will
+become the controlling terminal of the child process which will
+execute a shell command. The parent process waits for input from the
+user's terminal and sends it down the master pty. Every output including
+the echoed input will be written to a logfile and to the syslog daemon.
+
+
+Warning:
+========
+There may be methods to escape the auditing. The abuser might then delete
+his traces oder manipulate the logfiles.
+With (per default) activated syslog logging you have at least a chance
+to seek out suspicious traces of misbehaviour.
+
+
+

@@ -1,0 +1,10 @@
+Adam R Morris' program ppod gave me the idea 
+You can find it at http://software.mutant.net/ppod.html
+
+Most of the pseudo terminal code was obtained from the example code given 
+by the "UNIX Systems Programming for SVR4" book by Oreilly. 
+The code is available at the Oreilly Examples website
+http://examples.oreilly.com/usp/examples.tar.gz
+
+Another big help in understanding how pseudo terminals work was
+Addison Wesley's book "Advanced Programming in the UNIX Environment".

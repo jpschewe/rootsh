@@ -1,0 +1,68 @@
+rootsh Installation Instructions:
+
+coming soon: http://people.consol.de/~lausser/rootsh
+lausser@users.sourceforge.net
+
+
+Step 1. Decide if you want to have your logfiles in a non-standard place.
+
+        Logfiles with names like <user>.<date><time>.<process id>
+        will be written here, one for each rootsh session.
+        The users' input and output will be copied into these files.
+        I recommend to go with the default settings. This will be
+        /var/log/rootsh, /var/adm/rootsh, ...
+        according to your operating system.
+
+Step 2. Decide if you want to disable syslog.
+
+        By default all of the logged input and output will be 
+        sent to the syslog daemon. If you don't trust your 
+        rootsh users you can have syslogd to send your logging data
+        to another host, where they can not be manipulated.
+        In any case the logged input and output will be written
+        into logfiles.
+
+Step 3. Decide if you want to change syslog priority.
+  
+        By default all syslog messages use level "local5" and
+        facility "notice". If you don't like this, you can use
+        whatever you want. 
+        Be sure you edit your /etc/syslog.conf and make an entry
+        for your priority, either "local5.notice" or your own.
+
+Step 4. Configure your installation
+
+	There are 3 options to configure rootsh.
+
+        --with-logdir=LOGDIR
+        
+        Using this option will change the default directory for your
+        logfiles. 
+
+        --disable-syslog
+
+        Using this option will turn off logging to syslog. You still
+        have logfiles, but they could be manipulated by rootsh users.
+
+        --enable-syslog=LEVEL.FACILITY
+
+        Using this option will allow you to change the default
+        priority "local5.notice":
+
+Step 5. Build the binaries.
+
+	This is the easy part, type "make".
+	
+Step 6. Install the components.
+
+	Type "make install".
+	
+	This will install your rootsh binary.  
+
+Step 7. Grant a user the right to use rootsh
+
+        Make an entry in your /etc/sudoers and give the user the right
+        to execute the rootsh binary.
+        By typing "sudo rootsh" he will get a root shell and you can
+        watch his steps or read later what he has done.
+	

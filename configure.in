@@ -1,0 +1,210 @@
+dnl  ----- Start off like we always need to
+AC_INIT(rootsh, 0.1)
+AC_CONFIG_SRCDIR(src)
+dnl ---- AC_CONFIG_HEADER(src/config.h)
+AM_CONFIG_HEADER(src/config.h)
+
+dnl  ----- Put helper applications in a separate directory
+AC_CONFIG_AUX_DIR(config)
+
+AM_INIT_AUTOMAKE
+AC_CANONICAL_HOST
+
+syslog=
+AC_MSG_CHECKING(for syslog)
+AC_ARG_ENABLE(syslog,
+[  --enable-syslog[=facility.priority]             enable logging to syslog],
+[
+  syslog=$enableval
+])
+if test "x$syslog" = "xno" ; then
+  AC_MSG_RESULT(no)
+dnl --  AC_DEFINE(SYSLOGALL, 0,[no logging to syslog])
+else
+  AC_MSG_RESULT(enabled)
+  AC_DEFINE(SYSLOGALL, 1,[also logging to syslog])
+  AC_MSG_CHECKING(for syslog facility)
+  if test "x$syslog" = "xyes" ; then
+    syslogfac="local5.notice"
+  elif test "x$syslog" = "x" ; then
+    syslogfac="local5.notice"
+  elif test `expr $syslog : "."` -eq 1 ; then
+    syslogfac=$syslog
+  else
+    AC_MSG_ERROR($syslog is not a valid syslog level)
+  fi
+  facility=`echo $syslogfac | sed -e 's/\..*$//g'`
+  priority=`echo $syslogfac | sed -e 's/^.*\.//g'`
+  AC_MSG_RESULT($facility.$priority)
+  facility="LOG_"`echo $facility | tr '[[:lower:]]' '[[:upper:]]'`
+  priority="LOG_"`echo $priority | tr '[[:lower:]]' '[[:upper:]]'`
+  AC_DEFINE_UNQUOTED(SYSLOGFACILITY, $facility, [syslog facility])
+  AC_DEFINE_UNQUOTED(SYSLOGPRIORITY, $priority, [syslog priority])
+fi
+
+
+logdir=
+AC_MSG_CHECKING(for logdir)
+AC_ARG_WITH(logdir,
+[  --with-logdir=PATH      specify path where logfiles will be written],
+[
+  if test "x$withval" != "x" ; then
+    logdir=$withval
+  fi
+])
+if test "x$logdir" = "x" ; then
+  case "$host_os" in
+    *linux*)
+      logdir="/var/log/rootsh"
+      ;;
+    *solaris*)
+      logdir="/var/adm/rootsh"
+      ;;
+    *hp*)
+      logdir="/var/adm/rootsh"
+      ;;
+    *aix*)
+      logdir="/var/adm/rootsh"
+      ;;
+    *cygwin*)
+      logdir="/var/log/rootsh"
+      ;;
+    *)
+      logdir="/tmp/rootsh"
+      ;;
+  esac
+fi
+AC_MSG_RESULT($logdir)
+AC_DEFINE_UNQUOTED(LOGDIR,"$logdir",[directory for session protocols])
+
+if test "x$prefix" = "xNONE" ; then
+    prefix="/usr/local"
+    prefix_nondefault="NONE"
+fi
+
+
+dnl  ----- Figure out a C compiler to use; set @CC@
+AC_PROG_CC(gcc cc)
+
+dnl  ----- enable --enable-static
+
+dnl  ----- Figure out if ansi headers are available
+AC_HEADER_STDC
+
+dnl  ----- Need to know where libutil is; set @LIBUTIL@
+AC_CHECK_LIB(util,  [LIBUTIL=-lutil])
+AC_SUBST(LIBUTIL)
+
+
+dnl  ----- Find header files
+AC_STDC_HEADERS
+AC_HAVE_HEADERS(string.h fcntl.h sys/file.h sys/param.h stropts.h)
+AC_HAVE_HEADERS(libgen.h)
+AC_HAVE_HEADERS(pty.h)
+
+
+dnl  ----- Find functions
+AC_CHECK_FUNCS(forkpty,, AC_CHECK_LIB(util,forkpty, [AC_DEFINE(HAVE_FORKPTY)] [LIBS="$LIBS -lutil"]))
+dnl  ----- Solaris for example has no own prototypes for xxxusershell
+dnl - AC_DEFINE(NEED_GETUSERSHELL_PROTO,,[Solaris for example has no own prototypes for xxxusershell])
+AC_CHECK_FUNCS(setusershell, have_setusershell=yes)
+if test "$have_setusershell" = yes ; then
+  AC_MSG_CHECKING(setusershell prototype)
+  AC_EGREP_HEADER(setusershell, unistd.h, have_setusershell_prototype=yes)
+  if test "$have_setusershell_prototype" = yes ; then
+    AC_MSG_RESULT(yes)
+    AC_DEFINE(NEED_GETUSERSHELL_PROTO, 0, [os has its own prototype])
+  else
+    AC_MSG_RESULT(no)
+    AC_DEFINE(NEED_GETUSERSHELL_PROTO, 1, [need my own prototype])
+  fi
+fi
+
+AC_MSG_CHECKING(whether supplying sigset prototypes is permitted)
+AC_DEFINE([SUPPLY_SIGSET_PROTO], [], [Description])
+AC_TRY_COMPILE([#include <signal.h>],
+    [__sighandler_t sigset (int __sig, __sighandler_t __disp);],
+    [AC_MSG_RESULT(yes)
+     AC_DEFINE(SUPPLY_SIGSET_PROTO)],
+    AC_MSG_RESULT(no))
+AC_TYPE_SIGNAL
+
+
+
+dnl -----  pseudo terminal handling
+dnl -----  os        pty master      streams modules
+dnl -----  aix       /dev/ptc        - (loads ldterm by default)
+dnl -----  hpux      /dev/ptmx       ldterm ptem
+dnl -----  solaris   /dev/ptmx       ldterm ptem ttcompat
+
+dnl -----  aix loads module ldterm by default and wants no ptem
+AC_DEFINE([HAVE_AIX_PTY], [], [is there a aix pty master device file?])
+AC_MSG_CHECKING([for AIX pty])
+if test -r /dev/ptc ; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_AIX_PTY)
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl -----  this will succeed on solaris and fail on hpux
+AC_MSG_CHECKING(if your system supports the ttcompat streams module)
+AC_TRY_RUN(
+[
+#include <stdio.h>
+#include <fcntl.h>
+#include <stropts.h>
+main()
+{ int line;
+
+  if ( (line = open("/dev/ptmx", O_RDWR)) >= 0 &&
+       ioctl(line, I_PUSH, "ttcompat") == 0 )
+    exit(0);
+  exit(1);
+}
+], AC_DEFINE(HAVE_TTCOMPAT, 1,
+	     "Define if your system supports the ttcompat streams module")
+   AC_MSG_RESULT(yes),
+   AC_MSG_RESULT(no),
+   AC_MSG_RESULT(assuming no))
+
+dnl -----  this will be used as a define in rootsh.c
+AC_CHECK_FILE(/dev/ptmx, [AC_DEFINE_UNQUOTED(MASTERPTYDEV, "/dev/ptmx", [hp and sun style pty master])])
+AC_CHECK_FILE(/dev/ptc, [AC_DEFINE_UNQUOTED(MASTERPTYDEV, "/dev/ptc", [aix style pty master])])
+
+
+AC_ARG_ENABLE(more-warnings,
+  [  --disable-more-warnings  Inhibit compiler warnings], set_more_warnings=no)
+
+if test "$GCC" = "yes" -a "$set_more_warnings" != "no"; then
+  CFLAGS="$CFLAGS -Wall -Wstrict-prototypes -Wmissing-declarations \
+  -Wnested-externs -Wpointer-arith -pedantic"
+fi
+
+AC_MSG_CHECKING(operating system)
+case "$host_os" in 
+  *solaris*)
+    AC_MSG_RESULT(solaris)
+    AC_DEFINE(SOLARIS_COMPAT,,descr)
+    ;;
+  *linux*)
+    AC_MSG_RESULT(linux)
+    AC_DEFINE(LINUX_COMPAT,,descr)
+    CFLAGS="$CFLAGS -pedantic -Wstrict-prototypes"
+    ;;
+  *hp*)
+    AC_MSG_RESULT(hp-ux)
+    AC_DEFINE(HPUX_COMPAT,,descr)
+    ;;
+  *)
+    AC_MSG_RESULT($host_os)
+    ;;
+esac
+
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+
+dnl  ----- Write the Makefile
+AC_OUTPUT(Makefile src/Makefile)
+
+
