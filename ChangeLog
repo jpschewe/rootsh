@@ -42,3 +42,9 @@
 2004-11-29 Gerhard Lausser <gerhard.lausser@consol.de>
 	* deleted an accidentially left over line emitting a debug message
 	* released as rootsh-1.1.1
+
+2004-12-01 Gerhard Lausser <gerhard.lausser@consol.de>
+	* corrected hardcoded facility in write2syslog. thx Joel Fredrikson
+	* added possibility to pass commands to the shell
+	* released as rootsh-1.2
+	* messed up the cvs and released the same as rootsh-1.3
