@@ -35,3 +35,5 @@
 
 2004-11-25 Gerhard Lausser <gerhard.lausser@consol.de>
 	* changed parameter handling to getopt
+	* added --logfile, --logdir, --no-logfile, --no-syslog
+	* manpage at http://people.consol.de/~lausser/rootsh/rootsh.html

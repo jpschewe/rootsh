@@ -80,6 +80,7 @@ char *whoami(void);
 char *setupusername(void);
 char *setupshell(void);
 int setupusermode(void);
+int setupstandalonemode(void);
 int createsessionid(void);
 int beginlogging(void);
 void dologging(char *, int);
@@ -96,17 +97,30 @@ pid_t forkpty(int *master,  char  *name,  struct  termios *termp, struct winsize
 /* 
 //  global variables 
 */
-char progName[MAXPATHLEN];             /* used for logfile naming */
+char progName[MAXPATHLEN];             /* used for logfile naming    */
 int masterPty;
 FILE *logFile;
-char logFileName[MAXPATHLEN - 7];
-char closedLogFileName[MAXPATHLEN];
+char logFileName[MAXPATHLEN - 7];      /* the final logfile name     */
+char closedLogFileName[MAXPATHLEN];    /* same with .closed appended */
+char *userLogFileName = NULL;          /* what the user proposes     */
+char *userLogFileDir = NULL;           /* what the user proposes     */
 char sessionId[MAXPATHLEN + 11];
+#ifndef LOGTOFILE
+int logtofile = 0;
+#else 
+int logtofile = 1;
+#endif
+#ifndef LOGTOSYSLOG
+int logtosyslog = 0;
+#else
+int logtosyslog = 1;
+#endif
 struct termios termParams, newTty;
 struct winsize winSize;
 char *userName;                        /* the name of the calling user */
-char *runAsUser = NULL;
-pid_t runAsUserPid;
+char *runAsUser = NULL;                /* the user running the shell   */
+pid_t runAsUserPid;                    /* this user's pid              */
+int standalone;                        /* called by sudo or not?       */
 
 
 int main(int argc, char **argv, char **envp) {
@@ -116,13 +130,7 @@ int main(int argc, char **argv, char **envp) {
   int useLoginShell = 0;
   char buf[BUFSIZ];
   int c;
-/*
-char **ep;
 
-for (ep = envp; *ep != NULL; ep++) {
-  fprintf (stderr, "%s\n", *ep);
-}
-*/
   /* 
   //  this should be rootsh, but it could have been renamed 
   */
@@ -134,15 +142,19 @@ for (ep = envp; *ep != NULL; ep++) {
         {"version", 0, 0, 'V'},
         {"user", 1, 0, 'u'},
         {"initial", 0, 0, 'i'},
+        {"logfile", 1, 0, 'f'},
+        {"logdir", 1, 0, 'd'},
+        {"no-logfile", 0, 0, 'x'},
+        {"no-syslog", 0, 0, 'y'},
         {0, 0, 0, 0}
     };
     int option_index = 0;
-    c = getopt_long (argc, argv, "hViu:",
+    c = getopt_long (argc, argv, "hViu:f:d:xy",
         long_options, &option_index);
     if (c == -1)
       break;
     switch (c) {
-      case 'h':
+      case 'h':		
       case '?':
         usage();
         break;
@@ -153,7 +165,19 @@ for (ep = envp; *ep != NULL; ep++) {
         useLoginShell = 1;
         break;
       case 'u':
-    runAsUser = strdup(optarg);
+        runAsUser = strdup(optarg);
+        break;
+      case 'f':
+        userLogFileName = strdup(optarg);
+        break;
+      case 'd':
+        userLogFileDir = strdup(optarg);
+        break;
+      case 'x':
+        logtofile = 0;
+        break;
+      case 'y':
+        logtosyslog = 0;
         break;
       default:
         usage ();
@@ -169,6 +193,10 @@ for (ep = envp; *ep != NULL; ep++) {
   }
 
   if (! setupusermode()) {
+    exit(EXIT_FAILURE);
+  }
+
+  if (! setupstandalonemode()) {
     exit(EXIT_FAILURE);
   }
   
@@ -401,63 +429,102 @@ int beginlogging(void) {
   time_t now;
   char msgbuf[BUFSIZ];
 #ifdef LOGTOFILE
+  char defaultLogFileName[MAXPATHLEN - 7];
   int sec, min, hour, day, month, year, msglen;
 #endif
 
-#ifdef LOGTOFILE
-  /*
-  //  Construct the logfile name. 
-  //  LOGDIR/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
-  //  When the session is over, the logfile will be renamed 
-  //  to <logfile>.closed.
-  //  If we don't log to a file at all, don't mention 
-  //  a filename in the syslog logs.
-  */
-  now = time(NULL);
-  year = localtime(&now)->tm_year + 1900;
-  month = localtime(&now)->tm_mon + 1;
-  day = localtime(&now)->tm_mday;
-  hour = localtime(&now)->tm_hour;
-  min = localtime(&now)->tm_min;
-  sec = localtime(&now)->tm_sec;
-  snprintf(logFileName, (sizeof(logFileName) - 1), 
-      "%s/%s.%04d%02d%02d%02d%02d%02d.%s", 
-       LOGDIR, userName, year,month, day, hour, min, sec,
-       strrchr(sessionId, '-') + 1);
-  snprintf(closedLogFileName, (sizeof(closedLogFileName) - 1),
-      "%s.closed", logFileName);
-  /* 
-  //  Open the logfile 
-  */
-  if ((logFile = fopen(logFileName, "w")) == NULL) {
-    perror(logFileName);
-    return(0);
+  if (logtofile == 0 && logtosyslog == 0) {
+    fprintf(stderr, "you cannot switch off both file and syslog logging\n");
+    return (0);
   }
-  /* 
-  //  Note the start time in the log file 
-  */
-  msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session opened for %s as %s on %s at %s", 
-       basename(progName), userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, ttyname(0), ctime(&now)); 
-  fwrite(msgbuf, sizeof(char), msglen, logFile);
-  fflush(logFile);
+
+#ifdef LOGTOFILE
+  if (logtofile) {
+    /*
+    //  Construct the logfile name. 
+    //  LOGDIR/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
+    //  In standalone mode, a user may propose his own filename
+    //  When the session is over, the logfile will be renamed 
+    //  to <logfile>.closed.
+    //  If we don't log to a file at all, don't mention 
+    //  a filename in the syslog logs.
+    */
+    now = time(NULL);
+    year = localtime(&now)->tm_year + 1900;
+    month = localtime(&now)->tm_mon + 1;
+    day = localtime(&now)->tm_mday;
+    hour = localtime(&now)->tm_hour;
+    min = localtime(&now)->tm_min;
+    sec = localtime(&now)->tm_sec;
+    snprintf(defaultLogFileName, (sizeof(logFileName) - 1), 
+        "%s.%04d%02d%02d%02d%02d%02d.%s", 
+         userName, year,month, day, hour, min, sec,
+         strrchr(sessionId, '-') + 1);
+    if (standalone) {
+      if (userLogFileName && userLogFileDir) {
+        snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
+            userLogFileDir, userLogFileName);
+      } else if (userLogFileName && ! userLogFileDir) {
+        if (userLogFileName[0] == '/') {
+          snprintf(logFileName, (sizeof(logFileName) - 1), "%s",
+              userLogFileName);
+        } else {
+          snprintf(logFileName, (sizeof(logFileName) - 1), "./%s",
+              userLogFileName);
+        }
+      } else if (! userLogFileName && userLogFileDir) {
+        snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
+            userLogFileDir, defaultLogFileName);
+      } else {
+        snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
+            LOGDIR, defaultLogFileName);
+      }
+    } else {
+      snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
+          LOGDIR, defaultLogFileName);
+    }
+    snprintf(closedLogFileName, (sizeof(closedLogFileName) - 1),
+        "%s.closed", logFileName);
+    /* 
+    //  Open the logfile 
+    */
+    if ((logFile = fopen(logFileName, "w")) == NULL) {
+      perror(logFileName);
+      return(0);
+    }
+    /* 
+    //  Note the start time in the log file 
+    */
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+        "%s session opened for %s as %s on %s at %s", 
+         basename(progName), userName, 
+         runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
+         ttyname(0), ctime(&now)); 
+    fwrite(msgbuf, sizeof(char), msglen, logFile);
+    fflush(logFile);
+  }
 #endif
 #ifdef LOGTOSYSLOG
-  /* 
-  //  Prepare usage of syslog with sessionid as prefix 
-  */
-  openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
-  /* 
-  //  Note the log file name in syslog if there is one
-  */
-  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-#ifdef LOGTOFILE
-      "%s=%s,%s: logging new session (%s) to %s", 
-      userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, ttyname(0), sessionId, logFileName);
-#else
-      "%s=%s,%s: logging new session (%s)", 
-      userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, ttyname(0), sessionId);
-#endif
+  if(logtosyslog) {
+    /* 
+    //  Prepare usage of syslog with sessionid as prefix 
+    */
+    openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
+    /* 
+    //  Note the log file name in syslog if there is one
+    */
+    if (logtofile) {
+      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
+          "%s=%s,%s: logging new session (%s) to %s", 
+          userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
+          ttyname(0), sessionId, logFileName);
+    } else {
+      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
+          "%s=%s,%s: logging new session (%s)", 
+          userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
+          ttyname(0), sessionId);
+    }
+  }
 #endif
   return(1);
 }
@@ -470,12 +537,16 @@ int beginlogging(void) {
 
 void dologging(char *msgbuf, int msglen) {
 #ifdef LOGTOFILE
-          fwrite(msgbuf, sizeof(char), msglen, logFile);
-          fflush(logFile);    
+  if (logtofile) {
+    fwrite(msgbuf, sizeof(char), msglen, logFile);
+    fflush(logFile);    
+  }
 #endif
 #ifdef LOGTOSYSLOG
-          write2syslog(msgbuf, msglen);
-#endif    
+  if (logtosyslog) {
+    write2syslog(msgbuf, msglen);
+  }
+#endif
 }
 
 
@@ -491,19 +562,23 @@ void endlogging() {
   char msgbuf[BUFSIZ];
 
 #ifdef LOGTOSYSLOG
-  write2syslog("\r\n", 2);
-  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
-      userName, ttyname(0), basename(progName), sessionId);
-  closelog();
+  if (logtosyslog) {
+    write2syslog("\r\n", 2);
+    syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
+        userName, ttyname(0), basename(progName), sessionId);
+    closelog();
+  }
 #endif
 #ifdef LOGTOFILE
-  now = time(NULL);
-  msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session closed for %s on %s at %s", basename(progName),
-      userName, ttyname(0), ctime(&now)); 
-  fwrite(msgbuf, sizeof(char), msglen, logFile);
-  fclose(logFile);
-  rename(logFileName, closedLogFileName);
+  if (logtofile) {
+    now = time(NULL);
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+        "%s session closed for %s on %s at %s", basename(progName),
+        userName, ttyname(0), ctime(&now)); 
+    fwrite(msgbuf, sizeof(char), msglen, logFile);
+    fclose(logFile);
+    rename(logFileName, closedLogFileName);
+  }
 #endif
 }
 
@@ -556,10 +631,6 @@ char *setupshell() {
   }
   if (shell == NULL) {
     fprintf(stderr, "could not determine a valid shell\n");
-#ifdef LOGTOSYSLOG
-    syslog(SYSLOGFACILITY | LOG_WARNING, "%s,%s: has no valid shell", 
-        userName, ttyname(0));
-#endif
   } else {
     /* 
     //  compare it to the allowed shells in /etc/shells 
@@ -576,10 +647,6 @@ char *setupshell() {
     */
     if (isvalid == 0) {
       fprintf(stderr, "%s is not in /etc/shells\n", shell);
-#ifdef LOGTOSYSLOG
-      syslog(SYSLOGFACILITY | LOG_WARNING, "%s,%s: %s is not in /etc/shells", 
-          userName, ttyname(0), shell);
-#endif
       return(NULL);
     }        
   }
@@ -614,12 +681,28 @@ int setupusermode(void) {
       return(0);
     } else {
       runAsUserPid = pass->pw_uid;
+#ifdef CLEARENV_FOUND
       clearenv();
-      return(1);
+#else
+      environ = NULL;
+#endif
+      return (1);
     }
   }
 }
 
+
+/*
+//  find out, if rootsh was started via sudo or as a standalone command
+//  if rootsh was called directly instead of via sudo the user
+//  can provide additional command line options 
+*/
+
+int setupstandalonemode(void) {
+  standalone = (getenv("SUDO_USER") == NULL) ? 1 : 0;
+fprintf(stderr, "standalone  = %d\n", standalone);
+  return (1);
+}
 
 
 #ifndef HAVE_FORKPTY
@@ -778,10 +861,12 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
     //  no need for these in the slave process 
     */
     close(master);
-#ifdef LOGTOSYSLOG
-    closelog();
-#endif
-    fclose(logFile);
+    if (logtofile) {
+      fclose(logFile);
+    }
+    if (logtosyslog) {
+      closelog();
+    }
     /*
     //  set the slave to be our standard input, output,
     //  and error output.  Then get rid of the original
@@ -844,7 +929,11 @@ void usage() {
   printf("Usage: %s [OPTION [ARG]] ...\n"
     " -?, --help            show this help statement\n"
     " -i, --login           start a (initial) login shell\n"
-    " -u, --user username   run shell as a different user\n"
+    " -u, --user=username   run shell as a different user\n"
+    " -f, --logfile=file    name of your logfile (standalone only)\n"
+    " -d, --logdir=DIR      directory for your logfile (standalone only)\n"
+    " --no-logfile          switch off logging to a file (standalone only)\n"
+    " --no-syslog           switch off logging to syslog (standalone only)\n"
     " -V, --version         show version statement\n", basename(progName));
   exit(0);
 }

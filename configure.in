@@ -156,6 +156,11 @@ if test "$have_setusershell" = yes ; then
   fi
 fi
 
+AC_CHECK_FUNCS(clearenv,
+  AC_DEFINE(HAVE_CLEARENV, 1, [clearenv found]),
+  AC_DEFINE(HAVE_CLEARENV, 0, [clearenv found]))
+
+
 AC_CHECK_FUNCS(sigset, 
   AC_DEFINE(HAVE_SIGSET, 1, [sigset found]),
   AC_DEFINE(HAVE_SIGSET, 0, [sigset found]))

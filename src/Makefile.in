@@ -40,7 +40,7 @@ host_triplet = @host@
 bin_PROGRAMS = rootsh$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/config.h.in $(srcdir)/gnugetopt.h
+	$(srcdir)/config.h.in $(srcdir)/gnugetopt.h getopt.c getopt1.c
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/configure.in
@@ -111,7 +111,7 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-SU = @SU@
+SUCMD = @SUCMD@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_STRIP = @ac_ct_STRIP@

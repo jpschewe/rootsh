@@ -9,6 +9,9 @@
 /* we have bstring.h */
 #undef HAVE_BSTRING_H
 
+/* Define to 1 if you have the `clearenv' function. */
+#undef HAVE_CLEARENV
+
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
@@ -134,6 +137,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* "path to the su command" */
+#undef SUCMD
 
 /* Description */
 #undef SUPPLY_SIGSET_PROTO

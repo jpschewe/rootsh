@@ -114,7 +114,7 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-SU = @SU@
+SUCMD = @SUCMD@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_STRIP = @ac_ct_STRIP@
@@ -152,7 +152,7 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 SUBDIRS = src
-EXTRA_DIST = contrib src/gnugetopt.h src/getopt.c src/getopt1.c
+EXTRA_DIST = contrib src/gnugetopt.h src/getopt.c src/getopt1.c test.sh
 all: all-recursive
 
 .SUFFIXES:
