@@ -1,7 +1,8 @@
 #!/bin/sh
 
+unalias rm
 RM=`whereis rm|awk -F: '{print $2}'|awk '{print $1}'`
-RM=rm
+test -z "$RM" && RM=rm
 
 ${RM} test.log
 touch test.log

@@ -582,14 +582,14 @@ int beginlogging(void) {
     */
     if (logtofile) {
       syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-          "%s=%s,%s: logging new %s session (%s) to %s", 
+          "%s=%s,%s: logging new %ssession (%s) to %s", 
           userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-          ttyname(0), isaLoginShell ? "login" : "", sessionId, logFileName);
+          ttyname(0), isaLoginShell ? "login " : "", sessionId, logFileName);
     } else {
       syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-          "%s=%s,%s: logging new %s session (%s)", 
+          "%s=%s,%s: logging new %ssession (%s)", 
           userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-          ttyname(0), isaLoginShell ? "login" : "", sessionId);
+          ttyname(0), isaLoginShell ? "login " : "", sessionId);
     }
   }
 #endif
