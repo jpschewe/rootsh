@@ -44,7 +44,13 @@ Step 4. Decide if you want to turn off syslog line numbering
 
 Step 5. Configure your installation
 
-	There are 3 options to configure rootsh.
+	There are 5 options to configure rootsh.
+
+	--disable-logfile
+
+	Using this option will turn off logging to a local logfile.
+	If you disable logfiles, you _must not_ also disable syslog.
+	By default logfiles are turned on.
 
         --with-logdir=LOGDIR
         
@@ -55,6 +61,7 @@ Step 5. Configure your installation
 
         Using this option will turn off logging to syslog. You still
         have logfiles, but they could be manipulated by rootsh users.
+	By default syslog is turned on.
 
         --enable-syslog=LEVEL.FACILITY
 

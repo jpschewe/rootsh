@@ -326,7 +326,8 @@ case "$host_os" in
     ;;
 esac
 
-AC_PATH_PROGS(SU, su)
+AC_PATH_PROG(SUCMD, su, "/bin/false")
+AC_DEFINE_UNQUOTED(SUCMD,"$SUCMD", "path to the su command")
 
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET

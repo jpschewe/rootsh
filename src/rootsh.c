@@ -79,8 +79,10 @@ void finish(int);
 char *whoami(void);
 char *setupusername(void);
 char *setupshell(void);
+int setupusermode(void);
 int createsessionid(void);
 int beginlogging(void);
+void dologging(char *, int);
 void endlogging(void);
 void version(void);
 void usage(void);
@@ -110,11 +112,17 @@ pid_t runAsUserPid;
 int main(int argc, char **argv, char **envp) {
   char *shell, *dashShell;
   fd_set readmask;
-  int i, n, nfd, childPid;
+  int n, nfd, childPid;
   int useLoginShell = 0;
   char buf[BUFSIZ];
   int c;
+/*
+char **ep;
 
+for (ep = envp; *ep != NULL; ep++) {
+  fprintf (stderr, "%s\n", *ep);
+}
+*/
   /* 
   //  this should be rootsh, but it could have been renamed 
   */
@@ -151,13 +159,12 @@ int main(int argc, char **argv, char **envp) {
         usage ();
       }
   }
-exit(0);
 
-  if ((userName = setupusername()) == NULL) {
+  if (! createsessionid()) {
     exit(EXIT_FAILURE);
   }
 
-  if (! beginlogging()) {
+  if ((userName = setupusername()) == NULL) {
     exit(EXIT_FAILURE);
   }
 
@@ -168,8 +175,8 @@ exit(0);
   if ((shell = setupshell()) == NULL) {
     exit(EXIT_FAILURE);
   }
-  
-  if (! createsessionid()) {
+
+  if (! beginlogging()) {
     exit(EXIT_FAILURE);
   }
 
@@ -199,13 +206,23 @@ exit(0);
     //  then prepend the shell's basename with a dash.
     //  otherwise call it as interactive shell.
     */
-    if (useLoginShell) {
-      dashShell = strdup(shell);
-      dashShell = strrchr(dashShell, '/');
-      dashShell[0] = '-';
-      execl(shell, dashShell, 0);
+    if (runAsUser) {
+      if (useLoginShell) {
+        execl(SUCMD, (strrchr(SUCMD, '/') + 1), "-", runAsUser, 0);
+      } else {
+        execl(SUCMD, (strrchr(SUCMD, '/') + 1), runAsUser, 0);
+      }
+      perror(SUCMD);
     } else {
-      execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
+      if (useLoginShell) {
+        dashShell = strdup(shell);
+        dashShell = strrchr(dashShell, '/');
+        dashShell[0] = '-';
+        execl(shell, dashShell, 0);
+      } else {
+        execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
+      }
+      perror(shell);
     }
     perror(progName);
   } else {
@@ -316,13 +333,7 @@ exit(0);
         if ((n = read(masterPty, buf, sizeof(buf))) <= 0) {
           finish(0);
         } else {
-#ifdef LOGTOFILE
-          fwrite(buf, sizeof(char), n, logFile);
-          fflush(logFile);    
-#endif
-#ifdef LOGTOSYSLOG
-          write2syslog(buf, n);
-#endif    
+          dologging(buf, n);
           write(STDIN_FILENO, buf, n);
         }
       }
@@ -339,20 +350,20 @@ exit(0);
 */
 
 void finish(int sig) {
-  int sec, min, hour, day, month, year, msglen;
   char msgbuf[BUFSIZ];
+  int msglen;
+
   /* restore original tty modes */
   if (tcsetattr(0, TCSANOW, &termParams) < 0)
       perror("tcsetattr: stdin");
-#ifdef LOGTOSYSLOG
-  syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
-      "%s session interrupted by signal %d", basename(progName), sig);
-#endif
-#ifdef LOGTOFILE
-  msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session interrupted by signal %d", basename(progName), sig);
-  fwrite(msgbuf, sizeof(char), msglen, logFile);
-#endif
+  if (sig == 0) {
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+        "\n*** %s session ended by user\n", basename(progName));
+  } else {
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+        "\n*** %s session interrupted by signal %d\n", basename(progName), sig);
+  }
+  dologging(msgbuf, msglen);
   endlogging();
   close(masterPty);
   exit(EXIT_SUCCESS);
@@ -388,8 +399,10 @@ int createsessionid(void) {
 
 int beginlogging(void) {
   time_t now;
-  int sec, min, hour, day, month, year, msglen;
   char msgbuf[BUFSIZ];
+#ifdef LOGTOFILE
+  int sec, min, hour, day, month, year, msglen;
+#endif
 
 #ifdef LOGTOFILE
   /*
@@ -424,8 +437,8 @@ int beginlogging(void) {
   //  Note the start time in the log file 
   */
   msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-      "%s session opened for %s on %s at %s", 
-       basename(progName), userName, ttyname(0), ctime(&now)); 
+      "%s session opened for %s as %s on %s at %s", 
+       basename(progName), userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, ttyname(0), ctime(&now)); 
   fwrite(msgbuf, sizeof(char), msglen, logFile);
   fflush(logFile);
 #endif
@@ -439,14 +452,30 @@ int beginlogging(void) {
   */
   syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
 #ifdef LOGTOFILE
-      "%s,%s: logging new session (%s) to %s", 
-      userName, ttyname(0), sessionId, logFileName);
+      "%s=%s,%s: logging new session (%s) to %s", 
+      userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, ttyname(0), sessionId, logFileName);
 #else
-      "%s,%s: logging new session (%s)", 
-      userName, ttyname(0), sessionId);
+      "%s=%s,%s: logging new session (%s)", 
+      userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, ttyname(0), sessionId);
 #endif
 #endif
   return(1);
+}
+
+
+/*
+//  Send a buffer full of output to the selected logging destinations
+//  Either to a local logfile or to the syslog server or both
+*/
+
+void dologging(char *msgbuf, int msglen) {
+#ifdef LOGTOFILE
+          fwrite(msgbuf, sizeof(char), msglen, logFile);
+          fflush(logFile);    
+#endif
+#ifdef LOGTOSYSLOG
+          write2syslog(msgbuf, msglen);
+#endif    
 }
 
 
@@ -559,8 +588,8 @@ char *setupshell() {
 
 
 /*
-//  if a username was given on the command line
-//  see, if it has an acceptable length (yes, there are 64 character usernames)
+//  if a username was given on the command line via -u 
+//  see, if it has an acceptable length (yes, some have 64 character usernames)
 //  see, if it exists. 
 //  get the uid. 
 //  clean up the environment
@@ -569,6 +598,11 @@ char *setupshell() {
 
 int setupusermode(void) {
   struct passwd *pass;
+
+#ifndef SUCMD
+  fprintf(stderr, "user mode is not possible with this version of %s\n", progName);
+  return(1);
+#endif
   if (runAsUser == NULL) {
     return(1);
   } else if (strlen(runAsUser) > 64) {
@@ -576,17 +610,12 @@ int setupusermode(void) {
     return(0);
   } else {
     if ((pass = getpwnam(runAsUser)) == NULL) {
-      runAsUserPid = pass->pw_uid;
-      /* env_clean() */
-/*for (envptr = environ; *envptr != NULL; envptr++) {
-  fprintf(stderr, "%s\n", *envptr);
-}
-environ[0] = NULL;
-*/
-      return(1);
-    } else {
       fprintf(stderr, "user %s does not exist\n", runAsUser);
       return(0);
+    } else {
+      runAsUserPid = pass->pw_uid;
+      clearenv();
+      return(1);
     }
   }
 }
@@ -804,6 +833,9 @@ void version() {
 #else
   printf("line numbering is off\n");
 #endif
+#ifndef SUCMD
+  printf("running as non-root user is not possible\n");
+#endif
   exit(0);
 }
 
@@ -812,6 +844,7 @@ void usage() {
   printf("Usage: %s [OPTION [ARG]] ...\n"
     " -?, --help            show this help statement\n"
     " -i, --login           start a (initial) login shell\n"
+    " -u, --user username   run shell as a different user\n"
     " -V, --version         show version statement\n", basename(progName));
   exit(0);
 }

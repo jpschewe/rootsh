@@ -58,13 +58,13 @@ local5.notice	@your_central_syslog_host
 Wherever you send your syslog data to, the resulting output will be
 like this:
 
-Jul  2 17:44:19 ws0001 rootsh-020a: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020a) to /var/log/rootsh/usr1234.20040702174419.020a
+Jul  2 17:44:19 ws0001 rootsh-020a: usr1234=root,/dev/pts/0: logging new rootsh session (rootsh-020a) to /var/log/rootsh/usr1234.20040702174419.020a
 Jul  2 17:44:21 ws0001 rootsh-020a: 001: ws0001:~ # id 
 Jul  2 17:44:21 ws0001 rootsh-020a: 002: uid=0(root) gid=0(root) groups=0(root)
 Jul  2 17:44:22 ws0001 rootsh-020a: 003: ws0001:~ #  
 Jul  2 17:46:03 ws0001 rootsh-020a: 004: ws0001:~ # exit 
 Jul  2 17:46:03 ws0001 rootsh-020a: 005: exit 
-Jul  2 17:46:03 ws0001 rootsh-020a: 006:
+Jul  2 17:46:03 ws0001 rootsh-020a: 006: *** rootsh session ended by user
 Jul  2 17:46:03 ws0001 rootsh-020a: usr1234,/dev/pts/0: closing rootsh session (rootsh-020a) 
 
 where the rootsh-020a is an identifier created from the program's name and
@@ -87,6 +87,11 @@ Finished session's logfiles get ".closed" appended to their names. This
 helps you cleanng and archiving your logdir.
 
 There is a parameter "-i", which tells rootsh to run the shell as a login shell.
+
+You can use the parameter -u if you want to run the shell as another non-root user.
+
+Better look at the manpage at http://www.utfs.org/~lausser/rootsh/rootsh.html
+
 
 
 How it works:

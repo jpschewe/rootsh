@@ -30,5 +30,8 @@
 	* closed logfiles get ".closed" appended to their name.
 
 2004-11-23 Gerhard Lausser <gerhard.lausser@consol.de>
-	* added -i option with Michael Buselli's patch 
-	* added -u option like Michael Buselli suggested
+	* added -i option with MBuselli@cccis.com's patch 
+	* added -u option as Michael Buselli suggested
+
+2004-11-25 Gerhard Lausser <gerhard.lausser@consol.de>
+	* changed parameter handling to getopt
