@@ -37,3 +37,4 @@
 	* changed parameter handling to getopt
 	* added --logfile, --logdir, --no-logfile, --no-syslog
 	* manpage at http://people.consol.de/~lausser/rootsh/rootsh.html
+	* released as rootsh-1.1

@@ -90,7 +90,7 @@ There is a parameter "-i", which tells rootsh to run the shell as a login shell.
 
 You can use the parameter -u if you want to run the shell as another non-root user.
 
-Better look at the manpage at http://www.utfs.org/~lausser/rootsh/rootsh.html
+Better look at the manpage at http://people.consol.de/~lausser/rootsh/rootsh.html
 
 
 
