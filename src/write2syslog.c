@@ -57,7 +57,7 @@ char *stripesc(char *escBuffer);
 
 
 enum {
-  Normal, Esc, Csi, Dcs, DcsString, DropOne, DecSet
+  Normal, Esc, Csi, Dcs, DcsString, Osc, OscString, DropOne, DecSet
 } vtstate = Normal;
 
 
@@ -99,13 +99,22 @@ char *stripesc(char *escBuffer) {
       case CSI:
         vtstate = Csi;
         break;
-      case DCS: case OSC: case PM: case APC:
+      case DCS: case PM: case APC:
         vtstate = Dcs;  
+        break;
+      case OSC:
+        vtstate = Osc;  
         break;
       default:
         if ((chr & 0x6F) < 0x20) { /* Check controls */
           switch (chr) {
-            case BEL: case BS: case TAB: case LF: case VT: case FF: case CR:
+            case BEL:
+	      if (vtstate == OscString)
+		vtstate = Normal;
+	      else
+		*cleanBufferPtr++ = chr;
+              break;
+            case BS: case TAB: case LF: case VT: case FF: case CR:
               *cleanBufferPtr++ = chr;
               break;
           }
@@ -136,6 +145,10 @@ char *stripesc(char *escBuffer) {
               }
             }
             break;
+	  case Osc:
+            if (chr >= 0x40 && chr <= 0x7E)
+	      vtstate = OscString;
+	    break;
           case DecSet:
             if (chr == 0x68) {
               vtstate = Normal;
@@ -143,6 +156,8 @@ char *stripesc(char *escBuffer) {
             break;
           case DcsString:
             break;
+	  case OscString:
+	    break;
           case DropOne:
             break;
         }

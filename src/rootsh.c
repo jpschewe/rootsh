@@ -984,6 +984,10 @@ void version() {
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
 #endif
+#ifdef DEFAULTSHELL
+  printf("%s can be used as login shell. %s will interpret your commands\n",
+      basename(progName), DEFAULTSHELL);
+#endif
   exit(0);
 }
 
