@@ -57,6 +57,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #  include <stropts.h>
 #endif
 
+#if HAVE_GETOPT_H
+#  include <getopt.h>
+#else
+#  include "getopt.h"
+#endif
 
 #if NEED_GETUSERSHELL_PROTO
 /* 
@@ -66,7 +71,7 @@ char *getusershell(void);
 void setusershell(void);
 void endusershell(void);
 #endif
-
+extern char **environ;
 /*
 //   our own functions 
 */
@@ -98,47 +103,73 @@ char sessionId[MAXPATHLEN + 11];
 struct termios termParams, newTty;
 struct winsize winSize;
 char *userName;                        /* the name of the calling user */
+char *runAsUser = NULL;
+pid_t runAsUserPid;
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv, char **envp) {
   char *shell, *dashShell;
   fd_set readmask;
   int i, n, nfd, childPid;
   int useLoginShell = 0;
   char buf[BUFSIZ];
+  int c;
 
   /* 
   //  this should be rootsh, but it could have been renamed 
   */
   strncpy(progName, argv[0], (MAXPATHLEN - 1));
 
-  for (i = 1; i < argc; i++) {
-    char *arg = argv[i];
-
-
-    if (strcmp (arg, "--help") == 0 || strcmp (arg, "-?") == 0) {
-      usage();
-    }
-    if (strcmp (argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-      version();
-    }
-    if (strcmp (argv[i], "-i") == 0 || strcmp(argv[i], "--login") == 0) {
-      useLoginShell = 1;
-    }
+  while (1) {
+    static struct option long_options[] = {
+        {"help", 0, 0, 'h'},
+        {"version", 0, 0, 'V'},
+        {"user", 1, 0, 'u'},
+        {"initial", 0, 0, 'i'},
+        {0, 0, 0, 0}
+    };
+    int option_index = 0;
+    c = getopt_long (argc, argv, "hViu:",
+        long_options, &option_index);
+    if (c == -1)
+      break;
+    switch (c) {
+      case 'h':
+      case '?':
+        usage();
+        break;
+      case 'V':
+        version();
+        break;
+      case 'i':
+        useLoginShell = 1;
+        break;
+      case 'u':
+    runAsUser = strdup(optarg);
+        break;
+      default:
+        usage ();
+      }
   }
- 
+exit(0);
+
   if ((userName = setupusername()) == NULL) {
     exit(EXIT_FAILURE);
   }
 
+  if (! beginlogging()) {
+    exit(EXIT_FAILURE);
+  }
+
+  if (! setupusermode()) {
+    exit(EXIT_FAILURE);
+  }
+  
   if ((shell = setupshell()) == NULL) {
     exit(EXIT_FAILURE);
   }
   
   if (! createsessionid()) {
-    exit(EXIT_FAILURE);
-  }
-  if (! beginlogging()) {
     exit(EXIT_FAILURE);
   }
 
@@ -527,6 +558,40 @@ char *setupshell() {
 }
 
 
+/*
+//  if a username was given on the command line
+//  see, if it has an acceptable length (yes, there are 64 character usernames)
+//  see, if it exists. 
+//  get the uid. 
+//  clean up the environment
+//  if not, forget this and run as root
+*/
+
+int setupusermode(void) {
+  struct passwd *pass;
+  if (runAsUser == NULL) {
+    return(1);
+  } else if (strlen(runAsUser) > 64) {
+    fprintf(stderr, "this username is too long. i don\'t trust you\n");
+    return(0);
+  } else {
+    if ((pass = getpwnam(runAsUser)) == NULL) {
+      runAsUserPid = pass->pw_uid;
+      /* env_clean() */
+/*for (envptr = environ; *envptr != NULL; envptr++) {
+  fprintf(stderr, "%s\n", *envptr);
+}
+environ[0] = NULL;
+*/
+      return(1);
+    } else {
+      fprintf(stderr, "user %s does not exist\n", runAsUser);
+      return(0);
+    }
+  }
+}
+
+
 
 #ifndef HAVE_FORKPTY
 /* 
@@ -741,6 +806,7 @@ void version() {
 #endif
   exit(0);
 }
+
 
 void usage() {
   printf("Usage: %s [OPTION [ARG]] ...\n"

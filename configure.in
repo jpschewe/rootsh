@@ -139,6 +139,8 @@ AC_HAVE_HEADERS(pty.h)
 
 dnl  ----- Find functions
 AC_CHECK_FUNCS(forkpty,, AC_CHECK_LIB(util,forkpty, [AC_DEFINE(HAVE_FORKPTY)] [LIBS="$LIBS -lutil"]))
+dnl check for getopt in standard library
+adl_FUNC_GETOPT_LONG
 dnl  ----- Solaris for example has no own prototypes for xxxusershell
 dnl - AC_DEFINE(NEED_GETUSERSHELL_PROTO,,[Solaris for example has no own prototypes for xxxusershell])
 AC_CHECK_FUNCS(setusershell, have_setusershell=yes)
@@ -323,6 +325,8 @@ case "$host_os" in
     AC_MSG_RESULT($host_os)
     ;;
 esac
+
+AC_PATH_PROGS(SU, su)
 
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
