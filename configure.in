@@ -1,8 +1,8 @@
 dnl  ----- Start off like we always need to
-AC_INIT(rootsh, 1.4.1)
+AC_INIT([rootsh],[1.4.1])
 AC_CONFIG_SRCDIR(src)
 dnl ---- AC_CONFIG_HEADER(src/config.h)
-AM_CONFIG_HEADER(src/config.h)
+AC_CONFIG_HEADERS([src/config.h])
 
 dnl  ----- Put helper applications in a separate directory
 AC_CONFIG_AUX_DIR(config)
@@ -56,6 +56,7 @@ else
     AC_MSG_RESULT(disabled)
   fi
 fi
+AM_CONDITIONAL(LOGTOSYSLOG, test "x$syslog" != "xno")
 
 
 logfile=
@@ -164,10 +165,10 @@ AC_SUBST(LIBUTIL)
 
 
 dnl  ----- Find header files
-AC_STDC_HEADERS
-AC_HAVE_HEADERS(string.h fcntl.h sys/file.h sys/param.h stropts.h)
-AC_HAVE_HEADERS(libgen.h)
-AC_HAVE_HEADERS(pty.h)
+AC_HEADER_STDC([])
+AC_CHECK_HEADERS([string.h fcntl.h sys/file.h sys/param.h stropts.h])
+AC_CHECK_HEADERS([libgen.h])
+AC_CHECK_HEADERS([pty.h])
 
 
 dnl  ----- Find functions
@@ -205,42 +206,36 @@ AC_CHECK_FUNCS(sigaction,
 
 AC_MSG_CHECKING(whether supplying sigset prototypes is permitted)
 AC_DEFINE([SUPPLY_SIGSET_PROTO], [], [Description])
-AC_TRY_COMPILE([#include <signal.h>],
-    [__sighandler_t sigset (int __sig, __sighandler_t __disp);],
-    [AC_MSG_RESULT(yes)
-     AC_DEFINE(SUPPLY_SIGSET_PROTO)],
-    AC_MSG_RESULT(no))
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <signal.h>]], [[__sighandler_t sigset (int __sig, __sighandler_t __disp);]])],[AC_MSG_RESULT(yes)
+     AC_DEFINE(SUPPLY_SIGSET_PROTO)],[AC_MSG_RESULT(no)])
 AC_TYPE_SIGNAL
 
 dnl ----- Look for header that defines select() and fd_set.
 AC_MSG_CHECKING([select() and fd_set in sys/select.h and sys/bsdtypes.h])
-AC_TRY_COMPILE([#include <stdlib.h>
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <sys/types.h>],
-  [fd_set fds;
-select(0, NULL, NULL, NULL, NULL);], xpdf_ok=yes, xpdf_ok=no)
+#include <sys/types.h>]], [[fd_set fds;
+select(0, NULL, NULL, NULL, NULL);]])],[xpdf_ok=yes],[xpdf_ok=no])
 if test $xpdf_ok = yes; then
   AC_MSG_RESULT([not needed])
 else
-  AC_TRY_COMPILE([#include <stdlib.h>
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/select.h>],
-    [fd_set fds;
-select(0, NULL, NULL, NULL, NULL);], xpdf_ok=yes, xpdf_ok=no)
+#include <sys/select.h>]], [[fd_set fds;
+select(0, NULL, NULL, NULL, NULL);]])],[xpdf_ok=yes],[xpdf_ok=no])
   if test $xpdf_ok = yes; then
     AC_DEFINE(HAVE_SYS_SELECT_H, ,[we have a sys/select.h])
     AC_MSG_RESULT([need sys/select.h])
   else
-    AC_TRY_COMPILE([#include <stdlib.h>
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/bsdtypes.h>],
-      [fd_set fds;
-select(0, NULL, NULL, NULL, NULL);], xpdf_ok=yes, xpdf_ok=no)
+#include <sys/bsdtypes.h>]], [[fd_set fds;
+select(0, NULL, NULL, NULL, NULL);]])],[xpdf_ok=yes],[xpdf_ok=no])
     if test $xpdf_ok = yes; then
       AC_DEFINE(HAVE_SYS_BSDTYPES_H, , [we have a sys/bsdtypes.h])
       AC_MSG_RESULT([need sys/bsdtypes.h])
@@ -252,33 +247,30 @@ fi
 
 dnl ----- Look for header that defines FD_ZERO.
 AC_MSG_CHECKING([FD_ZERO and strings.h or bstring.h])
-AC_TRY_COMPILE([#include <stdlib.h>
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #include <sys/types.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
-#endif],
-[fd_set fds; FD_ZERO(&fds);], xpdf_ok=yes, xpdf_ok=no)
+#endif]], [[fd_set fds; FD_ZERO(&fds);]])],[xpdf_ok=yes],[xpdf_ok=no])
 if test $xpdf_ok = yes; then
   AC_MSG_RESULT([not needed])
 else
-  AC_TRY_COMPILE([#include <stdlib.h>
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #include <sys/types.h>
 #include <strings.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
-#endif],
-    [fd_set fds; FD_ZERO(&fds);], xpdf_ok=yes, xpdf_ok=no)
+#endif]], [[fd_set fds; FD_ZERO(&fds);]])],[xpdf_ok=yes],[xpdf_ok=no])
   if test $xpdf_ok = yes; then
     AC_DEFINE(HAVE_STRINGS_H)
     AC_MSG_RESULT([need strings.h])
   else
-    AC_TRY_COMPILE([#include <stdlib.h>
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #include <sys/types.h>
 #include <bstring.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
-#endif],
-      [fd_set fds; FD_ZERO(&fds);], xpdf_ok=yes, xpdf_ok=no)
+#endif]], [[fd_set fds; FD_ZERO(&fds);]])],[xpdf_ok=yes],[xpdf_ok=no])
     if test $xpdf_ok = yes; then
       AC_DEFINE(HAVE_BSTRING_H, , [we have bstring.h])
       AC_MSG_RESULT([need bstring.h])
@@ -307,8 +299,7 @@ fi
 
 dnl -----  this will succeed on solaris and fail on hpux
 AC_MSG_CHECKING(if your system supports the ttcompat streams module)
-AC_TRY_RUN(
-[
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdio.h>
 #include <fcntl.h>
 #include <stropts.h>
@@ -320,11 +311,9 @@ main()
     exit(0);
   exit(1);
 }
-], AC_DEFINE(HAVE_TTCOMPAT, 1,
+]])],[AC_DEFINE(HAVE_TTCOMPAT, 1,
 	     "Define if your system supports the ttcompat streams module")
-   AC_MSG_RESULT(yes),
-   AC_MSG_RESULT(no),
-   AC_MSG_RESULT(assuming no))
+   AC_MSG_RESULT(yes)],[AC_MSG_RESULT(no)],[AC_MSG_RESULT(assuming no)])
 
 dnl -----  this will be used as a define in rootsh.c
 AC_CHECK_FILE(/dev/ptmx, [AC_DEFINE_UNQUOTED(MASTERPTYDEV, "/dev/ptmx", [hp and sun style pty master])])
@@ -370,7 +359,14 @@ AC_DEFINE_UNQUOTED(SUCMD,"$SUCMD", "path to the su command")
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
+dnl  --- LIB@&t@OBJS=`echo "$LIB@&t@OBJS" |
+dnl  ---             sed 's,\.[[^.]]* ,$U&,g;s,\.[[^.]]*$,$U&,'`
+dnl  --- LTLIBOBJS=`echo "$LIB@&t@OBJS" |
+dnl  ---           sed 's,\.[[^.]]* ,.lo ,g;s,\.[[^.]]*$,.lo,'`
+dnl  --- AC_SUBST(LTLIBOBJS)
+
 dnl  ----- Write the Makefile
-AC_OUTPUT(Makefile src/Makefile)
+AC_CONFIG_FILES([Makefile src/Makefile])
+AC_OUTPUT
 
 
