@@ -6,7 +6,7 @@ on your terminal. Its main purpose is to give ordinary users a shell with
 root privileges while keeping an eye on what they type. This is accomplished
 by allowing them to execute rootsh via the sudo command. Unlike a simple
 "sudo -s" which is the usual way doing this, "sudo rootsh" will send their
-terminal keystrokes and output to a logfile and eventually to a remote i
+terminal keystrokes and output to a logfile and eventually to a remote 
 syslog server, where they are out of reach and safe from manipulation.
 
 
@@ -66,6 +66,15 @@ Jul  2 17:46:03 ws0001 rootsh-020: ws0001:~ # exit
 Jul  2 17:46:03 ws0001 rootsh-020: exit 
 Jul  2 17:46:03 ws0001 rootsh-020:  
 Jul  2 17:46:03 ws0001 rootsh-020: usr1234,/dev/pts/0: closing rootsh session (rootsh-020) 
+
+where the rootsh-020 is an identifier created from the program's name and
+a 3 digit random number during the initialization of rootsh. It will prepend
+every line sent to syslog and will help you to find all the entries in
+a logfile belonging to a specific session. 
+(first find the "logging new..." line for the session you're interested in,
+take the identifier like rootsh-020 in the example and grep all occurences
+of it from your logfile. If rootsh is running on many machines, there 
+may be collisions. Add the hostname to grep's pattern in this case.
 
 
 How it works:
