@@ -20,3 +20,11 @@
 2004-09-02 Gerhard Lausser <gerhard.lausser@consol.de>
 	* session numbers are now a 4-digit representation of the pid
 	* local files are unique user-timestamp-pid
+
+2004-11-04 Gerhard Lausser <gerhard.lausser@consol.de>
+	* made the comments more readable
+	* added a small patch for FreeBSD
+
+2004-11-15 Gerhard Lausser <gerhard.lausser@consol.de>
+	* closed logfiles get ".closed" appended to their name.
+

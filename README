@@ -59,12 +59,12 @@ Wherever you send your syslog data to, the resulting output will be
 like this:
 
 Jul  2 17:44:19 ws0001 rootsh-020a: usr1234,/dev/pts/0: logging new rootsh session (rootsh-020a) to /var/log/rootsh/usr1234.20040702174419.020a
-Jul  2 17:44:21 ws0001 rootsh-020a: ws0001:~ # id 
-Jul  2 17:44:21 ws0001 rootsh-020a: uid=0(root) gid=0(root) groups=0(root)
-Jul  2 17:44:22 ws0001 rootsh-020a: ws0001:~ #  
-Jul  2 17:46:03 ws0001 rootsh-020a: ws0001:~ # exit 
-Jul  2 17:46:03 ws0001 rootsh-020a: exit 
-Jul  2 17:46:03 ws0001 rootsh-020a:  
+Jul  2 17:44:21 ws0001 rootsh-020a: 001: ws0001:~ # id 
+Jul  2 17:44:21 ws0001 rootsh-020a: 002: uid=0(root) gid=0(root) groups=0(root)
+Jul  2 17:44:22 ws0001 rootsh-020a: 003: ws0001:~ #  
+Jul  2 17:46:03 ws0001 rootsh-020a: 004: ws0001:~ # exit 
+Jul  2 17:46:03 ws0001 rootsh-020a: 005: exit 
+Jul  2 17:46:03 ws0001 rootsh-020a: 006:
 Jul  2 17:46:03 ws0001 rootsh-020a: usr1234,/dev/pts/0: closing rootsh session (rootsh-020a) 
 
 where the rootsh-020a is an identifier created from the program's name and
@@ -80,6 +80,11 @@ You will also find the same output locally on the ws0001 host in a file
 called like this <caller's username>.<timestamp>.<process id>
 Depending on your operating system and configuration parameter --with-logdir=
 these files can be found in /var/log/rootsh, /var/adm/rootsh or your own choice.
+The counter after the session identifier can help you find holes if you
+are not sure wether logging was incomplete (either due to manipulation
+or network problems).
+Finished session's logfiles get ".closed" appended to their names. This 
+helps you cleanng and archiving your logdir.
 
 
 How it works:
