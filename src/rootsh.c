@@ -90,8 +90,11 @@ void endlogging(void);
 int recoverfile(int, char *);
 int forceopen(char *);
 char *defaultshell(void);
-char **saveenv(char *name);
+char **saveenv(char *);
 void restoreenv(void);
+#ifndef HAVE_CLEARENV
+int clearenv(void);
+#endif
 void version(void);
 void usage(void);
 #ifdef LOGTOSYSLOG
@@ -110,6 +113,13 @@ pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 //  progName		The name of this executable as passed in argv[0].
 //
 //  sessionId		A unique identifier. It's made up of the 
+//			program's name (without a leading "-") and
+//			a 4-digit hex representation of the process id.
+//
+//  sessionIdWithUid	The same identifier extended with  a colon and 
+//			the calling user's username. Used for extended
+//			logging to syslog.
+//
 //			program's name (without a leading "-") and
 //			a 4-digit hex representation of the process id.
 //
@@ -205,6 +215,9 @@ int main(int argc, char **argv) {
   //  
   //  sucmd		The path to the su command.
   //  
+  //  sessionIdEnv	A pointer to an environment variable assignment
+  //			ROOTSH_SESSIONID=sessionId.
+  //
   //  readmask		A set of filedescriptors to watch. Here we have
   //			the stdin of the calling terminal and the stdout.
   //  
@@ -224,6 +237,7 @@ int main(int argc, char **argv) {
   */
   char *shell, *dashShell, *shellCommands = NULL;
   char *sucmd = SUCMD;
+  static char sessionIdEnv[sizeof(sessionId) + 17];
   fd_set readmask;
   int n, childPid;
   char buf[BUFSIZ];
@@ -297,7 +311,14 @@ int main(int argc, char **argv) {
   }
 
   snprintf(sessionId, sizeof(sessionId), "%s[%05x]", 
-     *progName == '-' ? progName + 1 : progName, getpid());
+      *progName == '-' ? progName + 1 : progName, getpid());
+  snprintf(sessionIdEnv, sizeof(sessionIdEnv), "ROOTSH_SESSIONID=%s",
+      sessionId);
+  /*
+  //  Create an environment variable ROOTSH_SESSIONID with the sessionId
+  //  as its value.
+  */
+  putenv(sessionIdEnv);
 
   standalone = ((getenv("SUDO_USER") == NULL) ? 1 : 0);
 
@@ -379,13 +400,13 @@ int main(int argc, char **argv) {
     /* 
     //  Handle these signals (posix functions preferred).
     */
-#if defined(HAVE_SIGACTION)
+#if HAVE_SIGACTION
     struct sigaction action;
     memset(&action, 0, sizeof(action));
     action.sa_handler = finish;
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGQUIT, &action, NULL);
-#elif defined(HAVE_SIGSET)
+#elif HAVE_SIGSET
     sigset(SIGINT, finish);
     sigset(SIGQUIT, finish);
 #else
@@ -411,11 +432,7 @@ int main(int argc, char **argv) {
     //  Case sensitive input (not known to FreeBSD) | 
     //  no output flow control 
     */
-    newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|
-#ifdef IUCLC 
-        IUCLC|
-#endif
-        IXON);
+    newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
     /* 
     //  Set the new tty modes.
     */
@@ -559,6 +576,9 @@ int beginlogging(void) {
   int sec, min, hour, day, month, year, msglen;
   struct stat statBuf;
 #endif
+#ifdef LOGTOSYSLOG
+  static char sessionIdWithUid[sizeof(sessionId) + 10];
+#endif
 
   if (logtofile == 0 && logtosyslog == 0) {
     fprintf(stderr, "you cannot switch off both file and syslog logging\n");
@@ -584,9 +604,8 @@ int beginlogging(void) {
     min = localtime(&now)->tm_min;
     sec = localtime(&now)->tm_sec;
     snprintf(defLogFileName, (sizeof(logFileName) - 1), 
-        "%s.%04d%02d%02d%02d%02d%02d.%5s", 
-         userName, year,month, day, hour, min, sec,
-         strrchr(sessionId, '[') + 1);
+        "%s.%04d%02d%02d%02d%02d%02d.%05x", 
+         userName, year,month, day, hour, min, sec, getpid());
     if (standalone) {
       if (userLogFileName && userLogFileDir) {
         snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
@@ -613,7 +632,8 @@ int beginlogging(void) {
     /* 
     //  Open the logfile 
     */
-    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_EXCL|O_SYNC, S_IRUSR|S_IWUSR)) == -1) {
+    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_EXCL|O_SYNC,
+        S_IRUSR|S_IWUSR)) == -1) {
       perror(logFileName);
       return(0);
     }
@@ -643,7 +663,13 @@ int beginlogging(void) {
     /* 
     //  Prepare usage of syslog with sessionid as prefix.
     */
+#ifdef LOGUSERNAMETOSYSLOG
+    snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
+        sessionId, userName);
+    openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
+#else
     openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
+#endif
     /* 
     //  Note the log file name in syslog if there is one.
     */
@@ -1020,11 +1046,7 @@ int setupusermode(void) {
       return(0);
     } else {
       saveenv("TERM");
-#if HAVE_CLEARENV
       clearenv();
-#else
-      environ = NULL;
-#endif
       restoreenv();
       return (1);
     }
@@ -1130,6 +1152,23 @@ void restoreenv(void) {
     putenv(*senv++);
   }
 }
+
+
+/*
+//  Clear the environment completely.
+*/
+
+#ifndef HAVE_CLEARENV
+int clearenv(void) {
+  free(environ);
+  if ((environ = malloc(sizeof(char *))) == NULL) {
+    return(-1);
+  } else {
+    return(0);
+  }
+}
+#endif
+
 
 #ifndef HAVE_FORKPTY
 /* 

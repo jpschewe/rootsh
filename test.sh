@@ -30,6 +30,12 @@ if [ $? -eq 0 ]; then
   make
   if [ $? -eq 0 ]; then
     echo "OK make $PARMS" >> test.log
+    src/rootsh -V | grep "syslog messages go to"
+    if [ $? -ne 0 ]; then
+      echo "OK switches $PARMS" >> test.log
+    else
+      echo "FAIL switches $PARMS" >> test.log
+    fi
   else
     echo "FAIL make $PARMS" >> test.log
   fi
@@ -45,6 +51,12 @@ if [ $? -eq 0 ]; then
   make
   if [ $? -eq 0 ]; then
     echo "OK make $PARMS" >> test.log
+    src/rootsh -V | grep "logfiles go to directory"
+    if [ $? -ne 0 ]; then
+      echo "OK switches $PARMS" >> test.log
+    else
+      echo "FAIL switches $PARMS" >> test.log
+    fi
   else
     echo "FAIL make $PARMS" >> test.log
   fi
@@ -52,7 +64,7 @@ else
   echo "FAIL ./configure $PARMS" >> test.log
 fi
 
-PARMS="--with-defaultshell=/bin/sh"
+PARMS="--with-defaultshell=/bin/schmarrn"
 ./configure $PARMS
 if [ $? -eq 0 ]; then
   echo "OK ./configure $PARMS" >> test.log
@@ -60,6 +72,12 @@ if [ $? -eq 0 ]; then
   make
   if [ $? -eq 0 ]; then
     echo "OK make $PARMS" >> test.log
+    src/rootsh -V | grep "schmarrn"
+    if [ $? -eq 0 ]; then
+      echo "OK switches $PARMS" >> test.log
+    else
+      echo "FAIL switches $PARMS" >> test.log
+    fi
   else
     echo "FAIL make $PARMS" >> test.log
   fi
@@ -110,6 +128,21 @@ if [ $? -eq 0 ]; then
     else
       echo "FAIL run tampered mkdir" >> test.log
     fi
+    ${RM} -rf lolo*
+    ${RM} -rf *.closed
+    src/rootsh -i --logdir=. -- "env"
+    if [ -f *.closed ]; then
+      pid1=`ls *closed| awk -F. '{print $3}'`
+      pid2=`grep ROOTSH_SESSIONID *closed |sed -e 's/.*\[//g' -e 's/].*//g'`
+      if [ ! -z $pid1 ] && [ ! -z $pid2 ] && [ $pid1 = $pid2 ]; then
+        echo "OK run env" >> test.log
+      else
+        echo "FAIL run env" >> test.log
+      fi
+    else
+      echo "FAIL run env" >> test.log
+    fi
+    
   else
     echo "FAIL make $PARMS" >> test.log
   fi

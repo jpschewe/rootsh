@@ -67,3 +67,16 @@
 	* added irix support
 	* changed syslog message format (rootsh[5-hex-digits]: ...)
 	* released as 1.5.1
+
+2005-02-17 Gerhard Lausser <gerhard.lausser@consol.de>
+	* added macos-x support
+	* fixed irix logdir in configure.in
+
+2005-03-24 Gerhard Lausser <gerhard.lausser@consol.de>
+	* fixed a bug causing a core dump under SunOS5.9 and option -u
+	* fixed a bug which sent an ugly last line to syslog under Linux
+	* added syslogging the username as proposed by Franky Van Liedekerke
+	* added examples for to INSTALL
+	* added environment variable ROOTSH_SESSIONID inside a running rootsh
+	* released as 1.5.2
+

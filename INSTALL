@@ -40,9 +40,23 @@ Step 4. Decide if you want to turn off syslog line numbering
 	their way to the syslog server, you can examine the counter's
 	column. The numbers should be ascending from 000 to 100 and
 	then again start at 000.
+	Look at the bottom of this file for an example.
 
 
-Step 5. Configure your installation
+Step 5. Decide if you want to turn off writing the username into
+	every syslog line.
+
+	By default every syslog line is prepended by the username of
+	the calling user. This is for your convenience, if you have
+	a quick glance at the logfile. If you think this makes your
+	logfile less readable, disable it. You still can take the 
+	session-id which prepends the line and find the first line 
+	with this id which announces the logging of a new session.
+	This line also contains the username.
+	Look at the bottom of this file for an example.
+
+
+Step 6. Configure your installation
 
 	There are 6 options to configure rootsh.
 
@@ -76,6 +90,11 @@ Step 5. Configure your installation
 	Using this option will turn off prepending the syslog lines 
 	with a line counter.
 
+	--disable-syslog-username
+
+	Using this option will turn off prepending the syslog lines
+	with the username.
+
 	--with-defaultshell
 
 	If rootsh is a user's login shell from the 7th field in /etc/passwd
@@ -87,21 +106,21 @@ Step 5. Configure your installation
 	you can later see how these options were used.
 	
 
-Step 6. Build the binaries.
+Step 7. Build the binaries.
 
 	This is the easy part, type "make".
 	It worked for me on Linux 2.4, SunOS5.9, HP-UX11.11, AIX 5,
 	FreeBSD 5.2.1 and IRIX 6.5
 
 	
-Step 7. Install the components.
+Step 8. Install the components.
 
 	Type "make install".
 	
 	This will install your rootsh binary.  
 
 
-Step 8. Grant a user the right to use rootsh
+Step 9. Grant a user the right to use rootsh
 
         Make an entry in your /etc/sudoers and give the user the right
         to execute the rootsh binary.
@@ -117,6 +136,61 @@ Some remarks:
 	rootsh.c:258: warning: implicit declaration of function `snprintf'
 	which disappeared when i used the native compiler. 
 	Maybe a newer gcc also helps. (-std=c99 produced even more warnings)
+
+
+
+Some examples:
+
+default syslog behaviour:
+
+Mar 24 13:44:38 srv1 rootsh[062fd]: user1234=root,/dev/pts/10: logging new session (rootsh[062fd]) to /var/log/rootsh/user1234.20050324134426.062fd
+Mar 24 13:44:39 srv1 rootsh[062fd]: user1234: 000: srv1:/home/user1234/rootsh-1.5.2 # cd /etc
+Mar 24 13:44:41 srv1 rootsh[062fd]: user1234: 001: srv1:/etc # pwd
+Mar 24 13:44:11 srv1 rootsh[062fd]: user1234: 002: /etc
+Mar 24 13:44:42 srv1 rootsh[062fd]: user1234: 003: srv1:/etc # exit
+Mar 24 13:44:42 srv1 rootsh[062fd]: user1234: 004: exit
+Mar 24 13:44:42 srv1 rootsh[062fd]: user1234: 005: *** rootsh session ended by user
+Mar 24 13:44:42 srv1 rootsh[062fd]: user1234: 006: 
+Mar 24 13:44:42 srv1 rootsh[062fd]: user1234,/dev/pts/10: closing rootsh session (rootsh[062fd])
+
+
+with --disable-linenumbering:
+
+Mar 24 13:56:27 srv1 rootsh[06208]: user1234=root,/dev/pts/10: logging new session (rootsh[06208]) to /var/log/rootsh/user1234.20050324135626.06208
+Mar 24 13:56:29 srv1 rootsh[06208]: user1234: srv1:/home/user1234 # cd /etc
+Mar 24 13:56:31 srv1 rootsh[06208]: user1234: srv1:/etc # pwd
+Mar 24 13:56:31 srv1 rootsh[06208]: user1234: /etc
+Mar 24 13:56:32 srv1 rootsh[06208]: user1234: srv1:/etc # exit
+Mar 24 13:56:32 srv1 rootsh[06208]: user1234: exit
+Mar 24 13:56:32 srv1 rootsh[06208]: user1234: *** rootsh session ended by user
+Mar 24 13:56:32 srv1 rootsh[06208]: user1234: 
+Mar 24 13:56:32 srv1 rootsh[06208]: user1234,/dev/pts/10: closing rootsh session (rootsh[06208])
+
+
+with --disable-syslog-username:
+
+Mar 24 13:58:21 srv1 rootsh[0621a]: user1234=root,/dev/pts/10: logging new session (rootsh[0621a]) to /var/log/rootsh/user1234.20050324135626.0621a
+Mar 24 13:58:21 srv1 rootsh[0621a]: 000: srv1:/home/user1234 # cd /etc
+Mar 24 13:58:34 srv1 rootsh[0621a]: 001: srv1:/etc # pwd
+Mar 24 13:58:34 srv1 rootsh[0621a]: 002: /etc
+Mar 24 13:58:35 srv1 rootsh[0621a]: 003: srv1:/etc # exit
+Mar 24 13:58:35 srv1 rootsh[0621a]: 004: exit
+Mar 24 13:58:35 srv1 rootsh[0621a]: 005: *** rootsh session ended by user
+Mar 24 13:58:35 srv1 rootsh[0621a]: 006: 
+Mar 24 13:58:35 srv1 rootsh[0621a]: user1234,/dev/pts/10: closing rootsh session (rootsh[0621a])
+
+
+with --disable-syslog-username --disable-linenumbering:
+
+Mar 24 14:03:17 srv1 rootsh[06220]: user1234=root,/dev/pts/10: logging new session (rootsh[06220]) to /var/log/rootsh/user1234.20050324130326.06220
+Mar 24 14:03:19 srv1 rootsh[06220]: srv1:/home/user1234 # cd /etc
+Mar 24 14:03:21 srv1 rootsh[06220]: srv1:/etc # pwd
+Mar 24 14:03:21 srv1 rootsh[06220]: /etc
+Mar 24 14:03:22 srv1 rootsh[06220]: srv1:/etc # exit
+Mar 24 14:03:22 srv1 rootsh[06220]: exit
+Mar 24 14:03:22 srv1 rootsh[06220]: *** rootsh session ended by user
+Mar 24 14:03:22 srv1 rootsh[06220]: 
+Mar 24 14:03:22 srv1 rootsh[06220]: user1234,/dev/pts/10: closing rootsh session (rootsh[06220])
 
 
 

@@ -1,5 +1,5 @@
 dnl  ----- Start off like we always need to
-AC_INIT([rootsh],[1.5.1])
+AC_INIT([rootsh],[1.5.2])
 AC_CONFIG_SRCDIR(src)
 dnl ---- AC_CONFIG_HEADER(src/config.h)
 AC_CONFIG_HEADERS([src/config.h])
@@ -45,15 +45,27 @@ else
   AC_DEFINE_UNQUOTED(SYSLOGPRIORITY, $priority, [syslog priority])
   AC_MSG_CHECKING(for syslog linenumbering)
   AC_ARG_ENABLE(linenumbering,
-  [  --enable-linenumbering		enable numbering of syslog lines],
+  [  --disable-linenumbering               disable numbering of syslog lines],
   [
     linenumbering=$enableval
   ])
-  if test "x$linenumbering" = "xyes" || test "x$linenumbering" = "x" ; then
+  if test "x$linenumbering" = "xno" ; then
+    AC_MSG_RESULT(disabled)
+  else
     AC_MSG_RESULT(enabled)
     AC_DEFINE(LINECNT, 1,[enable numbering of syslog lines])
-  else
+  fi
+  AC_MSG_CHECKING(for username in syslog)
+  AC_ARG_ENABLE(syslog-username,
+  [  --disable-syslog-username             disable logging of username in every line],
+  [
+    syslogusername=$enableval
+  ])
+  if test "x$syslogusername" = "xno" ; then
     AC_MSG_RESULT(disabled)
+  else
+    AC_DEFINE(LOGUSERNAMETOSYSLOG, 1,[enable logging of username in every line])
+    AC_MSG_RESULT(enabled)
   fi
 fi
 AM_CONDITIONAL(LOGTOSYSLOG, test "x$syslog" != "xno")
@@ -92,7 +104,16 @@ if test "x$logfile" = "xyes" || test "x$logfile" = "x" ; then
       *aix*)
         logdir="/var/adm/rootsh"
         ;;
+      *freebsd*)
+        logdir="/var/log/rootsh"
+        ;;
       *cygwin*)
+        logdir="/var/log/rootsh"
+        ;;
+      *irix*)
+        logdir="/var/adm/rootsh"
+        ;;
+      *apple-darwin*)
         logdir="/var/log/rootsh"
         ;;
       *)
@@ -162,7 +183,16 @@ if test "x$defaultshell" = "x" ; then
     *aix*)
       defaultshell="/usr/bin/sh"
       ;;
+    *freebsd*)
+      defaultshell="/bin/sh"
+      ;;
     *cygwin*)
+      defaultshell="/bin/bash"
+      ;;
+    *irix*)
+      defaultshell="/bin/bash"
+      ;;
+    *apple-darwin*)
       defaultshell="/bin/bash"
       ;;
     *)
@@ -237,17 +267,16 @@ else
 fi
 
 AC_CHECK_FUNCS(clearenv,
-  AC_DEFINE(HAVE_CLEARENV, 1, [clearenv found]),
-  AC_DEFINE(HAVE_CLEARENV, 0, [clearenv found]))
+  AC_DEFINE(HAVE_CLEARENV, 1, [clearenv found]),)
 
 
 AC_CHECK_FUNCS(sigset, 
   AC_DEFINE(HAVE_SIGSET, 1, [sigset found]),
-  AC_DEFINE(HAVE_SIGSET, 0, [sigset found]))
+  AC_DEFINE(HAVE_SIGSET, 0, [sigset not found]))
 
 AC_CHECK_FUNCS(sigaction, 
   AC_DEFINE(HAVE_SIGACTION, 1, [sigaction found]),
-  AC_DEFINE(HAVE_SIGACTION, 0, [sigaction found]))
+  AC_DEFINE(HAVE_SIGACTION, 0, [sigaction not found]))
 
 
 AC_MSG_CHECKING(whether supplying sigset prototypes is permitted)
@@ -379,6 +408,10 @@ if test "$GCC" = "yes" -a "$set_more_warnings" != "no"; then
   -Wnested-externs -Wpointer-arith -pedantic"
 fi
 
+dnl --- set operating specific defines
+dnl --- freebsd is missing IUCLC for c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
+dnl --- macos is missing O_SYNC for open(file, O_RDWR|O_CREAT|O_EXCL|O_SYNC,
+dnl --- we define them as 0, so we can still use them in the code
 AC_MSG_CHECKING(operating system)
 case "$host_os" in 
   *solaris*)
@@ -398,6 +431,20 @@ case "$host_os" in
     AC_MSG_RESULT(aix)
     AC_DEFINE(AIX_COMPAT,,descr)
     AC_DEFINE(_ALL_SOURCE,,descr)
+    ;;
+  *freebsd*)
+    AC_MSG_RESULT(freebsd)
+    AC_DEFINE(IUCLC, 0, own replacement for iuclc)
+    ;;
+  *cygwin*)
+    AC_MSG_RESULT(cygwin)
+    ;;
+  *irix*)
+    AC_MSG_RESULT(irix)
+    ;;
+  *apple-darwin*)
+    AC_MSG_RESULT(macosx)
+    AC_DEFINE(O_SYNC, 0, own replacement for o_sync)
     ;;
   *)
     AC_MSG_RESULT($host_os)

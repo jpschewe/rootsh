@@ -96,6 +96,9 @@
 /* descr */
 #undef HPUX_COMPAT
 
+/* own replacement for iuclc */
+#undef IUCLC
+
 /* enable numbering of syslog lines */
 #undef LINECNT
 
@@ -111,6 +114,9 @@
 /* also logging to syslog */
 #undef LOGTOSYSLOG
 
+/* enable logging of username in every line */
+#undef LOGUSERNAMETOSYSLOG
+
 /* lets see what happens */
 #undef MASTERPTYDEV
 
@@ -119,6 +125,9 @@
 
 /* need my own prototype */
 #undef NEED_GETUSERSHELL_PROTO
+
+/* own replacement for o_sync */
+#undef O_SYNC
 
 /* Name of package */
 #undef PACKAGE
