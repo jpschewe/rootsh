@@ -19,7 +19,7 @@ ftp://aixpdslib.seas.ucla.edu/pub/lppbuild/RISC/4.3/src/lppbuild.2.1.tar.Z
    hopefully you will see this
    # lppbuild
    LPPBUILD - Processing for rootsh started
-   found "rootsh" at level 0.1.0.0.
+   found "rootsh" at level 0.2.0.0.
    Processing files for rootsh...
    Backing up to /home/qx28305/rootsh-0.2/contrib/aix/rootsh/rootsh.bff.
    Cluster 51200 bytes (100 blocks).

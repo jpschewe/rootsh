@@ -81,6 +81,9 @@
 /* descr */
 #undef HPUX_COMPAT
 
+/* enable numbering of syslog lines */
+#undef LINECNT
+
 /* descr */
 #undef LINUX_COMPAT
 
