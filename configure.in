@@ -120,6 +120,15 @@ if test "$have_setusershell" = yes ; then
   fi
 fi
 
+AC_CHECK_FUNCS(sigset, 
+  AC_DEFINE(HAVE_SIGSET, 1, [sigset found]),
+  AC_DEFINE(HAVE_SIGSET, 0, [sigset found]))
+
+AC_CHECK_FUNCS(sigaction, 
+  AC_DEFINE(HAVE_SIGACTION, 1, [sigaction found]),
+  AC_DEFINE(HAVE_SIGACTION, 0, [sigaction found]))
+
+
 AC_MSG_CHECKING(whether supplying sigset prototypes is permitted)
 AC_DEFINE([SUPPLY_SIGSET_PROTO], [], [Description])
 AC_TRY_COMPILE([#include <signal.h>],
@@ -138,11 +147,10 @@ dnl -----  hpux      /dev/ptmx       ldterm ptem
 dnl -----  solaris   /dev/ptmx       ldterm ptem ttcompat
 
 dnl -----  aix loads module ldterm by default and wants no ptem
-AC_DEFINE([HAVE_AIX_PTY], [], [is there a aix pty master device file?])
 AC_MSG_CHECKING([for AIX pty])
 if test -r /dev/ptc ; then
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_AIX_PTY)
+  AC_DEFINE(HAVE_AIX_PTY, 1, [/dev/ptc found. this should be aix])
 else
   AC_MSG_RESULT(no)
 fi
@@ -195,6 +203,11 @@ case "$host_os" in
   *hp*)
     AC_MSG_RESULT(hp-ux)
     AC_DEFINE(HPUX_COMPAT,,descr)
+    ;;
+  *aix*)
+    AC_MSG_RESULT(aix)
+    AC_DEFINE(AIX_COMPAT,,descr)
+    AC_DEFINE(_ALL_SOURCE,,descr)
     ;;
   *)
     AC_MSG_RESULT($host_os)

@@ -75,7 +75,7 @@ pid_t forkpty(int *master,  char  *name,  struct  termios *termp, struct winsize
 
 /* global variables */
 char progName[MAXPATHLEN];             /* used for logfile naming */
-int masterPty, slavePty;
+int masterPty;
 FILE *logFile;
 char sessionId[MAXPATHLEN + 11];
 struct termios termParams, newTty;
@@ -120,7 +120,6 @@ int main(int argc, char **argv) {
   tcgetattr(STDIN_FILENO, &termParams);
   /*save original window size */
   ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
-printf ("original winsize. setting is %d %d\n", winSize.ws_row, winSize.ws_col);
   
   /* fork a child process, create a pty pair, 
      make the slave the controlling terminal,
@@ -374,8 +373,10 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
   /* same for window size */
   if (winp == NULL) {
     ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&currentwinsize);
-    winp = &currentwinsize;
-printf ("no param winsize. setting is %d %d\n", winp->ws_row, winp->ws_col);
+    winp->ws_row = currentwinsize.ws_row;
+    winp->ws_col = currentwinsize.ws_col;
+    winp->ws_xpixel = currentwinsize.ws_xpixel;
+    winp->ws_ypixel = currentwinsize.ws_ypixel;
   }
 
   /* get a master pseudo-tty */
@@ -462,8 +463,7 @@ printf ("no param winsize. setting is %d %d\n", winp->ws_row, winp->ws_col);
     }
 
     /* set the slave pty window size to the caller's size */
-printf ("setting slave is %d %d\n", winp->ws_row, winp->ws_col);
-    if (ioctl(slavePty, TIOCGWINSZ, winp)) {
+    if (ioctl(slave, TIOCSWINSZ, winp) < 0) {
       perror("ioctl: slave winsz");
       close(master);
       close(slave);
