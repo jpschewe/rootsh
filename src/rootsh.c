@@ -8,7 +8,7 @@ Copyright (C) 2004 Gerhard Lausser
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
+as published by the Free Software Foundation; either version 3
 of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
@@ -42,6 +42,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <sys/stat.h>
 #include <dirent.h>
 #include <regex.h>
+#include <wordexp.h>
 #if HAVE_SYS_SELECT_H
 #  include <sys/select.h>
 #endif
@@ -84,6 +85,7 @@ char *setupusername(void);
 char *setupshell(void);
 int setupusermode(void);
 void finish(int);
+void handle_sig_winch(int);
 int beginlogging(void);
 void dologging(char *, int);
 void endlogging(void);
@@ -103,6 +105,7 @@ extern void write2syslog(const void *, size_t);
 #ifndef HAVE_FORKPTY
 pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
+char **build_scp_args( char *str, size_t reserve );
 
 /* 
 //  global variables 
@@ -179,6 +182,8 @@ pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 extern char **environ;
 extern int errno;
 
+volatile sig_atomic_t sigwinch_received;
+
 static char progName[MAXPATHLEN];
 static char sessionId[MAXPATHLEN + 11];
 static int logFile;
@@ -232,6 +237,8 @@ int main(int argc, char **argv) {
   //			an interactive shell.
   //  
   //  c, option_index	Used by getopt_long.
+  //
+  //  doscp             Whether or not the incoming request is for a scp
   //  
   //  long_options	Used by getopt_long.
   */
@@ -242,6 +249,7 @@ int main(int argc, char **argv) {
   int n, childPid;
   char buf[BUFSIZ];
   int c, option_index = 0;
+  int doscp = 0;
   struct option long_options[] = {
       {"help", 0, 0, 'h'},
       {"version", 0, 0, 'V'},
@@ -260,7 +268,7 @@ int main(int argc, char **argv) {
   strncpy(progName, basename(argv[0]), (MAXPATHLEN - 1));
 
   while (1) {
-    c = getopt_long (argc, argv, "hViu:f:d:xy",
+    c = getopt_long (argc, argv, "hViu:f:d:xyc:",
         long_options, &option_index);
     if (c == -1) {
       /*
@@ -287,6 +295,11 @@ int main(int argc, char **argv) {
       case 'V':
         version();
         break;
+      case 'c':
+	// if they supply a -c somewhere and it isn't the first arg, then the command is no good
+	if ( strcmp("-c", argv[1]) ) usage ();
+	doscp = 1;
+	break;
       case 'i':
         useLoginShell = 1;
         break;
@@ -321,6 +334,23 @@ int main(int argc, char **argv) {
   putenv(sessionIdEnv);
 
   standalone = ((getenv("SUDO_USER") == NULL) ? 1 : 0);
+
+  /*
+  // The user requested a SCP command
+  */
+  if (doscp) {
+	  if (! beginlogging()) {
+		  exit(EXIT_FAILURE);
+	  }
+	  int i;
+	  for ( i = 0; i < argc; i++ ) {
+		  dologging(argv[i], sizeof(argv[i]));
+		  dologging("\n", sizeof("\n"));
+	  }
+	  execv("/usr/bin/scp", build_scp_args(argv[2], 0));
+	  printf("%s: %s\n", argv[0], strerror(errno));
+	  exit(errno);
+  }
 
   if ((userName = setupusername()) == NULL) {
     exit(EXIT_FAILURE);
@@ -377,21 +407,21 @@ int main(int argc, char **argv) {
       dashShell[0] = '-';
     }
     if (runAsUser && useLoginShell && shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0);
+      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
     } else if (runAsUser && useLoginShell && !shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, 0);
+      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, 0, (char *)NULL);
     } else if (runAsUser && !useLoginShell && shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, 0);
+      execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, 0, (char *)NULL);
     } else if (runAsUser && !useLoginShell && !shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), runAsUser, 0);
+      execl(shell, (strrchr(shell, '/') + 1), runAsUser, 0, (char *)NULL);
     } else if (!runAsUser && useLoginShell && shellCommands) {
-      execl(shell, dashShell, "-c", shellCommands, 0);
+      execl(shell, dashShell, "-c", shellCommands, 0, (char *)NULL);
     } else if (!runAsUser && useLoginShell && !shellCommands) {
-      execl(shell, dashShell, 0);
+      execl(shell, dashShell, 0, (char *)NULL);
     } else if (!runAsUser && !useLoginShell && shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, 0);
+      execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, 0, (char *)NULL);
     } else if (!runAsUser && !useLoginShell && !shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-i", 0);
+      execl(shell, (strrchr(shell, '/') + 1), "-i", 0, (char *)NULL);
     } else {
       perror(shell);
     }
@@ -413,6 +443,9 @@ int main(int argc, char **argv) {
     signal(SIGINT, finish);
     signal(SIGQUIT, finish);
 #endif
+    signal(SIGWINCH, handle_sig_winch);
+    sigwinch_received = 0;
+
     newTty = termParams;
     /* 
     //  Let read not return until at least 1 byte has been received.
@@ -458,9 +491,18 @@ int main(int argc, char **argv) {
       */
       n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
         (struct timeval *) 0);
-      if (n < 0) {
+      if (n < 0 && sigwinch_received == 0) {
         perror("select");
         exit(EXIT_FAILURE);
+      }
+
+      if(sigwinch_received) {
+       sigwinch_received = 0;
+       signal(SIGWINCH, handle_sig_winch);
+       ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+       ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
+       kill(childPid, SIGWINCH);
+       continue;
       }
 
       /* 
@@ -505,6 +547,11 @@ int main(int argc, char **argv) {
   exit(EXIT_SUCCESS);
 }
 
+void handle_sig_winch(int sig) {
+
+  sigwinch_received = 1;
+
+}
 
 /* 
 //  Do some cleaning after the child exited.
@@ -632,7 +679,7 @@ int beginlogging(void) {
     /* 
     //  Open the logfile 
     */
-    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_EXCL|O_SYNC,
+    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_SYNC|O_CREAT|O_APPEND|
         S_IRUSR|S_IWUSR)) == -1) {
       perror(logFileName);
       return(0);
@@ -1394,6 +1441,45 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
 }
 #endif
 
+char **build_scp_args( char *str, size_t reserve ) {
+
+  wordexp_t       result;
+  int             retc;
+
+  result.we_offs = reserve;
+  if ( (retc = wordexp(str, &result, WRDE_NOCMD|WRDE_DOOFFS)) ){
+    switch( retc ){
+    case WRDE_BADCHAR:
+    case WRDE_CMDSUB:
+      fprintf(stderr, "%s: bad characters in arguments\n",
+	      progName);
+      break;
+    case WRDE_NOSPACE:
+      fprintf(stderr, "%s: wordexp() allocation failed\n",
+	      progName);
+      break;
+    case WRDE_BADVAL:
+      fprintf(stderr, "%s: wordexp() bad value\n",
+	      progName);
+      break;
+    case WRDE_SYNTAX:
+      fprintf(stderr, "%s: wordexp() bad syntax\n",
+	      progName);
+      break;
+#ifdef WRDE_NOSYS
+    case WRDE_NOSYS:
+      fprintf(stderr, "%s: wordexp() not supported\n",
+	      progName);
+      break;
+#endif
+    default:
+      fprintf(stderr, "%s: error expanding arguments\n",
+	      progName);
+    }
+    exit(1);
+  }
+  return result.we_wordv;
+}
 
 /*
 //  Print version number and capabilities of this binary.

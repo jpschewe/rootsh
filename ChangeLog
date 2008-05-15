@@ -80,3 +80,10 @@
 	* added environment variable ROOTSH_SESSIONID inside a running rootsh
 	* released as 1.5.2
 
+2008-05-14 Corey Henderson <corman@cormander.com>
+	* fixed a bug which caused rootsh to fail to compile with gcc v4
+	* fixed a bug where resizing the window of rootsh didn't resize the terminal
+	* fixed a bug where rootsh could not open log files in an append-only directory
+	* added ability to scp files to an account where rootsh is the user's shell
+	* updated GPL to version 3
+	* released as 1.5.3

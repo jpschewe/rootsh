@@ -1,77 +1,73 @@
-%define ver 0.2
-%define rel 1
+# Upstream: Corey Henderson <corman@cormander.com>
 
-Summary: logging shell wrapper bla
+%define _without_syslog 1
+
+Summary: Shell wrapper to log activity
 Name: rootsh
-Version: %{ver}
-Release: %{rel}
-License: GNU
-Group: Applications/Shells
-Source: %{name}-%{version}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
+Version: 1.5.3
+Release: 1
+License: GPL
+Group: System Environment/Base
+URL: http://sourceforge.net/projects/rootsh/
+Packager: Corey Henderson <corman@cormander.com>
+Source: http://dl.sf.net/rootsh/rootsh-%{version}.tar.gz
 
-# Where do we expect the logfiles
-%define logdir /var/log/rootsh
-
-# Do we want syslog support (1=yes 0=no)
-%define syslog 1
-
-# if yes, which priority
-%define sysloglevel local5
-%define syslogfacility notice
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 %description
-bla
+Rootsh is a wrapper for shells which logs all echoed keystrokes and terminal
+output to a file and/or to syslog. It's main purpose is the auditing of users
+who need a shell with root privileges. They start rootsh through the sudo
+mechanism.
 
 %prep
-%setup -q
+%setup
 
 %build
-aclocal
-autoheader
-autoconf
-
 %configure \
-        --prefix=/ \
-        --with-logdir=%{logdir} \
-%if %{syslog}
-        --enable-syslog=%{sysloglevel}.%{syslogfacility}
-%else
-        --disable-syslog
-%endif
-make
+%{!?_without_syslog:--enable-syslog="local5.notice"} \
+%{?_without_syslog:--disable-syslog} \
+	--with-logdir="%{_localstatedir}/log/rootsh"
+%{__make} %{?_smp_mflags}
 
 %install
-rm -rf $RPM_BUILD_ROOT
-mkdir -p -m755 $RPM_BUILD_ROOT%{logdir}
-
-make install DESTDIR=$RPM_BUILD_ROOT
+%{__rm} -rf %{buildroot}
+%makeinstall
+%{__install} -d -m0700 %{buildroot}%{_localstatedir}/log/rootsh/
 
 %clean
-rm -rf $RPM_BUILD_ROOT
-
-%pre
-mkdir %{logdir}
-chmod 700 %{logdir}
-chown root:root  %{logdir}
-
-%postun
-rm -rf /usr/bin/rootsh
-if [ -d /tmp/rootsh ]; then
-  # there is already an old backup directory. move just the logfiles
-  mv /var/adm/rootsh/* /tmp/rootsh
-  rm -rf /var/adm/rootsh
-else
-  # copy the entire log directory to tmp
-  mv /var/adm/rootsh /tmp/rootsh
-fi
+%{__rm} -rf %{buildroot}
 
 %files
-%defattr(-,root,root)
-%doc CREDITS ChangeLog INSTALL LICENCE OVERVIEW README* RFC* TODO WARNING*
-%attr(0500,bin,bin) %{_bindir}/rootsh
-%attr(0700,root,root) %{logdir}
+%defattr(-, root, root, 0755)
+%doc AUTHORS ChangeLog COPYING INSTALL README THANKS
+%{_mandir}/man1/rootsh.1*
+%{_bindir}/rootsh
+
+%defattr(1777, root, root)
+%{_localstatedir}/log/rootsh/
 
 %changelog
-* Mon Jul 12 2004 Gerhard Lausser <lausser@sourceforge.net>
-- initial release
+* Wed May 14 2008 Corey Henderson <corman@cormander.com>
+- Re-released as 1.5.3 with 4 patches
+
+* Fri Mar 14 2008 Corey Henderson <corman@cormander.com>
+- added rootsh-append.patch
+- added rootsh-gcc4-sentinel-compile.patch
+- added rootsh-scp.patch
+- added rootsh-sigwinch.patch
+
+* Thu Mar 24 2005 Dag Wieers <dag@wieers.com> - 1.5.2-1 - 2964+/dag
+- Updated to release 1.5.2.
+
+* Sat Feb 12 2005 Dag Wieers <dag@wieers.com> - 1.5.1-1
+- Updated to release 1.5.1.
+
+* Sun Dec 19 2004 Dries Verachtert <dries@ulyssis.org> - 1.5-1
+- Updated to release 1.5.
+
+* Thu Dec 09 2004 Dries Verachtert <dries@ulyssis.org> - 1.4.1-1
+- Updated to release 1.4.1.
+
+* Fri Sep 14 2004 Dag Wieers <dag@wieers.com> - 0.2-1
+- Initial package. (using DAR)
