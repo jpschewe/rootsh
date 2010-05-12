@@ -180,7 +180,6 @@ char **build_scp_args( char *str, size_t reserve );
 //  
 */
 extern char **environ;
-extern int errno;
 
 volatile sig_atomic_t sigwinch_received;
 
