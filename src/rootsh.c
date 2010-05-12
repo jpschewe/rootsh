@@ -835,7 +835,10 @@ void endlogging() {
         */
         msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
             "*** USER TRIED TO DELETE AND RECREATE THIS FILE ***\r\n");
-        unlink(logFileName) && rmdir(logFileName);
+        if(unlink(logFileName)) {
+          /* must have been a directory, try and delete it */
+          rmdir(logFileName);
+        }
       } else {
         if (fstat(logFile, &statBuf) == -1) {
           /*
