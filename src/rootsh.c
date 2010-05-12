@@ -680,7 +680,7 @@ int beginlogging(void) {
     /* 
     //  Open the logfile 
     */
-    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_SYNC|O_CREAT|O_APPEND|
+    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_SYNC|O_CREAT|O_APPEND,
         S_IRUSR|S_IWUSR)) == -1) {
       perror(logFileName);
       return(0);
