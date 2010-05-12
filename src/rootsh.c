@@ -404,6 +404,8 @@ int main(int argc, char **argv) {
       dashShell = strdup(shell);
       dashShell = strrchr(dashShell, '/');
       dashShell[0] = '-';
+    } else {
+      dashShell = NULL;
     }
     if (runAsUser && useLoginShell && shellCommands) {
       execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
