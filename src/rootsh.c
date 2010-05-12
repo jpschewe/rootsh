@@ -296,7 +296,7 @@ int main(int argc, char **argv) {
         version();
         break;
       case 'c':
-	// if they supply a -c somewhere and it isn't the first arg, then the command is no good
+	/* if they supply a -c somewhere and it isn't the first arg, then the command is no good */
 	if ( strcmp("-c", argv[1]) ) usage ();
 	doscp = 1;
 	break;
