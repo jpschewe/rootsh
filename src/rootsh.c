@@ -339,10 +339,10 @@ int main(int argc, char **argv) {
   // The user requested a SCP command
   */
   if (doscp) {
+	  int i;
 	  if (! beginlogging()) {
 		  exit(EXIT_FAILURE);
 	  }
-	  int i;
 	  for ( i = 0; i < argc; i++ ) {
 		  dologging(argv[i], sizeof(argv[i]));
 		  dologging("\n", sizeof("\n"));
