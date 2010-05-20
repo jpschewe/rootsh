@@ -85,6 +85,7 @@ char *setupusername(void);
 char *setupshell(void);
 int setupusermode(void);
 void finish(int);
+char* consume_remaining_args(int, char **, char *);
 void handle_sig_winch(int);
 int beginlogging(void);
 void dologging(char *, int);
@@ -237,8 +238,6 @@ int main(int argc, char **argv) {
   //  
   //  c, option_index	Used by getopt_long.
   //
-  //  doscp             Whether or not the incoming request is for a scp
-  //  
   //  long_options	Used by getopt_long.
   */
   char *shell, *dashShell, *shellCommands = NULL;
@@ -248,7 +247,6 @@ int main(int argc, char **argv) {
   int n, childPid;
   char buf[BUFSIZ];
   int c, option_index = 0;
-  int doscp = 0;
   struct option long_options[] = {
       {"help", 0, 0, 'h'},
       {"version", 0, 0, 'V'},
@@ -274,18 +272,10 @@ int main(int argc, char **argv) {
       //  Arguments not belonging to known switches are treated
       //  as commands which will be passed to the shell.
       */
-      while (optind < argc) {
-        if (! shellCommands) {
-          shellCommands = calloc(sizeof(char), 1);
-        }
-        shellCommands = realloc(shellCommands, 
-            strlen(shellCommands) + strlen(argv[optind]) + 2);
-        strcat(shellCommands, argv[optind]);
-        strcat(shellCommands, " ");
-        optind++;
-      }
+      shellCommands = consume_remaining_args(argc, argv, shellCommands);
       break;
     }
+    sleep(10);
     switch (c) {
       case 'h':		
       case '?':
@@ -295,9 +285,12 @@ int main(int argc, char **argv) {
         version();
         break;
       case 'c':
-	/* if they supply a -c somewhere and it isn't the first arg, then the command is no good */
-	if ( strcmp("-c", argv[1]) ) usage ();
-	doscp = 1;
+        /* back up 1 argument to allow consume_remaining_args to get the current arg to the -c */
+        --optind;
+        
+        /* Everything after -c should be passed directly to the execed shell
+         * to be POSIX compliant */
+        shellCommands = consume_remaining_args(argc, argv, shellCommands);
 	break;
       case 'i':
         useLoginShell = 1;
@@ -333,23 +326,6 @@ int main(int argc, char **argv) {
   putenv(sessionIdEnv);
 
   standalone = ((getenv("SUDO_USER") == NULL) ? 1 : 0);
-
-  /*
-  // The user requested a SCP command
-  */
-  if (doscp) {
-	  int i;
-	  if (! beginlogging()) {
-		  exit(EXIT_FAILURE);
-	  }
-	  for ( i = 0; i < argc; i++ ) {
-		  dologging(argv[i], sizeof(argv[i]));
-		  dologging("\n", sizeof("\n"));
-	  }
-	  execv("/usr/bin/scp", build_scp_args(argv[2], 0));
-	  printf("%s: %s\n", argv[0], strerror(errno));
-	  exit(errno);
-  }
 
   if ((userName = setupusername()) == NULL) {
     exit(EXIT_FAILURE);
@@ -407,6 +383,7 @@ int main(int argc, char **argv) {
     } else {
       dashShell = NULL;
     }
+    /*DEBUG fprintf(stderr, "shell commands #%s#\n", shellCommands);*/
     if (runAsUser && useLoginShell && shellCommands) {
       execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
     } else if (runAsUser && useLoginShell && !shellCommands) {
@@ -447,33 +424,35 @@ int main(int argc, char **argv) {
     signal(SIGWINCH, handle_sig_winch);
     sigwinch_received = 0;
 
-    newTty = termParams;
-    /* 
-    //  Let read not return until at least 1 byte has been received.
-    */
-    newTty.c_cc[VMIN] = 1; 
-    newTty.c_cc[VTIME] = 0;
-    /* 
-    //  Don't perform output processing.
-    */
-    newTty.c_oflag &= ~OPOST;
-    /* 
-    //  Noncanonical input | signal characters off |echo off.
-    */
-    newTty.c_lflag &= ~(ICANON|ISIG|ECHO);
-    /* 
-    //  NL to CR off | don't ignore CR | CR to NL off |
-    //  Case sensitive input (not known to FreeBSD) | 
-    //  no output flow control 
-    */
-    newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
-    /* 
-    //  Set the new tty modes.
-    */
-    if (tcsetattr(0, TCSANOW, &newTty) < 0) {
+    if(isatty(0)) {
+      newTty = termParams;
+      /* 
+      //  Let read not return until at least 1 byte has been received.
+      */
+      newTty.c_cc[VMIN] = 1; 
+      newTty.c_cc[VTIME] = 0;
+      /* 
+      //  Don't perform output processing.
+      */
+      newTty.c_oflag &= ~OPOST;
+      /* 
+      //  Noncanonical input | signal characters off |echo off.
+      */
+      newTty.c_lflag &= ~(ICANON|ISIG|ECHO);
+      /* 
+      //  NL to CR off | don't ignore CR | CR to NL off |
+      //  Case sensitive input (not known to FreeBSD) | 
+      //  no output flow control 
+      */
+      newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
+      /* 
+      //  Set the new tty modes.
+      */
+      if (tcsetattr(0, TCSANOW, &newTty) < 0) {
         perror("tcsetattr: stdin");
         exit(EXIT_FAILURE);
-    }
+      }
+    }    
     /* 
     //  Now just sit in a loop reading from the keyboard and
     //  writing to the pseudo-tty, and reading from the  
@@ -491,19 +470,19 @@ int main(int argc, char **argv) {
       //  Wait for something to read.
       */
       n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
-        (struct timeval *) 0);
+                 (struct timeval *) 0);
       if (n < 0 && sigwinch_received == 0) {
         perror("select");
         exit(EXIT_FAILURE);
       }
 
       if(sigwinch_received) {
-       sigwinch_received = 0;
-       signal(SIGWINCH, handle_sig_winch);
-       ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
-       ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
-       kill(childPid, SIGWINCH);
-       continue;
+        sigwinch_received = 0;
+        signal(SIGWINCH, handle_sig_winch);
+        ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+        ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
+        kill(childPid, SIGWINCH);
+        continue;
       }
 
       /* 
@@ -548,6 +527,25 @@ int main(int argc, char **argv) {
   exit(EXIT_SUCCESS);
 }
 
+/**
+ * Consume the remaining args and append them to shellCommands.
+ * 
+ * @return the new value of shellCommands
+ */
+char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
+  while (optind < argc) {
+    if (! shellCommands) {
+      shellCommands = calloc(sizeof(char), 1);
+    }
+    shellCommands = realloc(shellCommands, 
+                            strlen(shellCommands) + strlen(argv[optind]) + 2);
+    strcat(shellCommands, argv[optind]);
+    strcat(shellCommands, " ");
+    optind++;
+  }
+  return shellCommands;
+}
+
 void handle_sig_winch(int sig) {
 
   sigwinch_received = 1;
@@ -574,9 +572,12 @@ void finish(int sig) {
   char msgbuf[BUFSIZ];
   int msglen;
 
-  if (tcsetattr(0, TCSANOW, &termParams) < 0)
+  if(isatty(0)) {
+    if (tcsetattr(0, TCSANOW, &termParams) < 0) {
       perror("tcsetattr: stdin");
-  if (sig == 0) {
+    }
+  }
+  if (sig == 0) { 
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
         "\n*** %s session ended by user\r\n", progName);
   } else {
@@ -978,8 +979,15 @@ char *setupusername() {
   */
   char *userName = NULL;
   struct stat ttybuf;
+  struct passwd *passwd_entry;
+    
+  passwd_entry = getpwuid(geteuid());
+  userName = passwd_entry->pw_name;
 
-  if((userName = getlogin()) == NULL) {
+  if(userName == NULL) {
+  /*if((userName = getlogin()) == NULL) {*/
+  /*if((cuserid(userName)) == NULL) {*/
+  
     /* 
     //  HP-UX returns NULL here so we take the controlling terminal's owner.
     */
