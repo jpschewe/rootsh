@@ -89,7 +89,7 @@ int setupusermode(void);
 void finish(int);
 char* consume_remaining_args(int, char **, char *);
 void handle_sig_winch(int);
-int beginlogging(void);
+int beginlogging(const char *);
 void dologging(char *, int);
 void endlogging(void);
 int recoverfile(int, char *);
@@ -326,7 +326,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  if (! beginlogging()) {
+  if (! beginlogging(shellCommands)) {
     exit(EXIT_FAILURE);
   }
 
@@ -619,7 +619,7 @@ void finish(int sig) {
 //  Send introducing lines to the logging functions.
 */
 
-int beginlogging(void) {
+int beginlogging(const char *shellCommands) {
   /*
   //  msgbuf		A buffer where a variable text will be written.
   //  
@@ -725,8 +725,13 @@ int beginlogging(void) {
         "%s%s session opened for %s as %s on %s at %s", 
          isaLoginShell ? "login " : "", progName, userName, 
          runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-         ttyname(0), ctime(&now)); 
+         ttyname(0), ctime(&now));
     write(logFile, msgbuf, msglen);
+    if(NULL != shellCommands) {
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "args: %s", shellCommands);
+      write(logFile, msgbuf, msglen);
+    }
   }
 #endif
 #ifdef LOGTOSYSLOG
