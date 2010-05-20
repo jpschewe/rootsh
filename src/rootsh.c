@@ -81,6 +81,8 @@ void endusershell(void);
 /*
 //   our own functions 
 */
+void logSession(const int);
+void execShell(const char *, const char *);
 char *setupusername(void);
 char *setupshell(void);
 int setupusermode(void);
@@ -216,22 +218,10 @@ int main(int argc, char **argv) {
   /*
   //  shell		The path to the shell which will be executed.
   //
-  //  dashShell		The basename of shell, prepended with "-".
-  //  
-  //  sucmd		The path to the su command.
-  //  
   //  sessionIdEnv	A pointer to an environment variable assignment
   //			ROOTSH_SESSIONID=sessionId.
   //
-  //  readmask		A set of filedescriptors to watch. Here we have
-  //			the stdin of the calling terminal and the stdout.
-  //  
-  //  n			Either the filedescriptor which changed state in
-  //			the event loop or a simple counter.
-  //  
   //  childPid		The pid of the process executing the shell.
-  //  
-  //  buf		A buffer used for various red/write operations.
   //  
   //  shellCommands	The commands which will be executed instead of
   //			an interactive shell.
@@ -240,12 +230,9 @@ int main(int argc, char **argv) {
   //
   //  long_options	Used by getopt_long.
   */
-  char *shell, *dashShell, *shellCommands = NULL;
-  char *sucmd = SUCMD;
+  char *shell, *shellCommands = NULL;
   static char sessionIdEnv[sizeof(sessionId) + 17];
-  fd_set readmask;
-  int n, childPid;
-  char buf[BUFSIZ];
+  int childPid;
   int c, option_index = 0;
   struct option long_options[] = {
       {"help", 0, 0, 'h'},
@@ -363,168 +350,203 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   if (childPid == 0) {
-    /* 
-    //  This process will exec a shell.
-    //  If rootsh was called with the -u user parameter, we will exec
-    //  su user instead of a shell.
-    */
-    if (runAsUser) {
-      shell = sucmd;
-    }
-    /*
-    //  If rootsh was called with the -i parameter (initial login)
-    //  then prepend the shell's basename with a dash,
-    //  otherwise call it as an interactive shell.
-    */
-    if (useLoginShell) {
-      dashShell = strdup(shell);
-      dashShell = strrchr(dashShell, '/');
-      dashShell[0] = '-';
-    } else {
-      dashShell = NULL;
-    }
-    /*DEBUG fprintf(stderr, "shell commands #%s#\n", shellCommands);*/
-    if (runAsUser && useLoginShell && shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
-    } else if (runAsUser && useLoginShell && !shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, 0, (char *)NULL);
-    } else if (runAsUser && !useLoginShell && shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, 0, (char *)NULL);
-    } else if (runAsUser && !useLoginShell && !shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), runAsUser, 0, (char *)NULL);
-    } else if (!runAsUser && useLoginShell && shellCommands) {
-      execl(shell, dashShell, "-c", shellCommands, 0, (char *)NULL);
-    } else if (!runAsUser && useLoginShell && !shellCommands) {
-      execl(shell, dashShell, 0, (char *)NULL);
-    } else if (!runAsUser && !useLoginShell && shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, 0, (char *)NULL);
-    } else if (!runAsUser && !useLoginShell && !shellCommands) {
-      execl(shell, (strrchr(shell, '/') + 1), "-i", 0, (char *)NULL);
-    } else {
-      perror(shell);
-    }
-    perror(progName);
+    execShell(shell, shellCommands);
   } else {
-    /* 
-    //  Handle these signals (posix functions preferred).
-    */
+    logSession(childPid);
+  }
+  exit(EXIT_SUCCESS);
+}
+
+void logSession(const int childPid) {
+  /*
+  //  readmask		A set of filedescriptors to watch. Here we have
+  //			the stdin of the calling terminal and the stdout.
+  //  
+  //  n			Either the filedescriptor which changed state in
+  //			the event loop or a simple counter.
+  //  buf		A buffer used for various red/write operations.
+  //  
+  //  
+  */
+  int n;
+  fd_set readmask;
+  char buf[BUFSIZ];
+  
+  /* 
+  //  Handle these signals (posix functions preferred).
+  */
 #if HAVE_SIGACTION
-    struct sigaction action;
-    memset(&action, 0, sizeof(action));
-    action.sa_handler = finish;
-    sigaction(SIGINT, &action, NULL);
-    sigaction(SIGQUIT, &action, NULL);
+  struct sigaction action;
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = finish;
+  sigaction(SIGINT, &action, NULL);
+  sigaction(SIGQUIT, &action, NULL);
 #elif HAVE_SIGSET
-    sigset(SIGINT, finish);
-    sigset(SIGQUIT, finish);
+  sigset(SIGINT, finish);
+  sigset(SIGQUIT, finish);
 #else
-    signal(SIGINT, finish);
-    signal(SIGQUIT, finish);
+  signal(SIGINT, finish);
+  signal(SIGQUIT, finish);
 #endif
-    signal(SIGWINCH, handle_sig_winch);
-    sigwinch_received = 0;
+  signal(SIGWINCH, handle_sig_winch);
+  sigwinch_received = 0;
 
-    if(isatty(0)) {
-      newTty = termParams;
-      /* 
-      //  Let read not return until at least 1 byte has been received.
-      */
-      newTty.c_cc[VMIN] = 1; 
-      newTty.c_cc[VTIME] = 0;
-      /* 
-      //  Don't perform output processing.
-      */
-      newTty.c_oflag &= ~OPOST;
-      /* 
-      //  Noncanonical input | signal characters off |echo off.
-      */
-      newTty.c_lflag &= ~(ICANON|ISIG|ECHO);
-      /* 
-      //  NL to CR off | don't ignore CR | CR to NL off |
-      //  Case sensitive input (not known to FreeBSD) | 
-      //  no output flow control 
-      */
-      newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
-      /* 
-      //  Set the new tty modes.
-      */
-      if (tcsetattr(0, TCSANOW, &newTty) < 0) {
-        perror("tcsetattr: stdin");
-        exit(EXIT_FAILURE);
-      }
-    }    
+  if(isatty(0)) {
+    newTty = termParams;
     /* 
-    //  Now just sit in a loop reading from the keyboard and
-    //  writing to the pseudo-tty, and reading from the  
-    //  pseudo-tty and writing to the screen and the logfile.
+    //  Let read not return until at least 1 byte has been received.
     */
-    for (;;) {
-      /* 
-      //  Watch for users terminal and master pty to change status.
-      */
-      FD_ZERO(&readmask);
-      FD_SET(masterPty, &readmask);
-      FD_SET(0, &readmask);
+    newTty.c_cc[VMIN] = 1; 
+    newTty.c_cc[VTIME] = 0;
+    /* 
+    //  Don't perform output processing.
+    */
+    newTty.c_oflag &= ~OPOST;
+    /* 
+    //  Noncanonical input | signal characters off |echo off.
+    */
+    newTty.c_lflag &= ~(ICANON|ISIG|ECHO);
+    /* 
+    //  NL to CR off | don't ignore CR | CR to NL off |
+    //  Case sensitive input (not known to FreeBSD) | 
+    //  no output flow control 
+    */
+    newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
+    /* 
+    //  Set the new tty modes.
+    */
+    if (tcsetattr(0, TCSANOW, &newTty) < 0) {
+      perror("tcsetattr: stdin");
+      exit(EXIT_FAILURE);
+    }
+  }    
+  /* 
+  //  Now just sit in a loop reading from the keyboard and
+  //  writing to the pseudo-tty, and reading from the  
+  //  pseudo-tty and writing to the screen and the logfile.
+  */
+  for (;;) {
+    /* 
+    //  Watch for users terminal and master pty to change status.
+    */
+    FD_ZERO(&readmask);
+    FD_SET(masterPty, &readmask);
+    FD_SET(0, &readmask);
 
-      /* 
-      //  Wait for something to read.
-      */
-      n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
-                 (struct timeval *) 0);
-      if (n < 0 && sigwinch_received == 0) {
-        perror("select");
+    /* 
+    //  Wait for something to read.
+    */
+    n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
+               (struct timeval *) 0);
+    if (n < 0 && sigwinch_received == 0) {
+      perror("select");
+      exit(EXIT_FAILURE);
+    }
+
+    if(sigwinch_received) {
+      /* pass SIGWINCH to the child */
+      sigwinch_received = 0;
+      signal(SIGWINCH, handle_sig_winch);
+      ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+      ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
+      kill(childPid, SIGWINCH);
+      continue;
+    }
+
+    /* 
+    //  The user typed something... 
+    //  Read it and pass it on to the pseudo-tty.
+    */
+    if (FD_ISSET(0, &readmask)) {
+      if ((n = read(0, buf, sizeof(buf))) < 0) {
+        perror("read: stdin");
         exit(EXIT_FAILURE);
       }
-
-      if(sigwinch_received) {
-        sigwinch_received = 0;
-        signal(SIGWINCH, handle_sig_winch);
-        ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
-        ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
-        kill(childPid, SIGWINCH);
-        continue;
-      }
-
-      /* 
-      //  The user typed something... 
-      //  Read it and pass it on to the pseudo-tty.
-      */
-      if (FD_ISSET(0, &readmask)) {
-        if ((n = read(0, buf, sizeof(buf))) < 0) {
-          perror("read: stdin");
-          exit(EXIT_FAILURE);
-        }
-        if (n == 0) {
-          /* 
-          //  The user typed end-of-file; we're done.
-          */
-          finish(0);
-        }
-        if (write(masterPty, buf, n) != n) {
-          perror("write: pty");
-          exit(EXIT_FAILURE);
-        }
-      }
-
-      /* 
-      //  There's output on the pseudo-tty... 
-      //  Read it and pass it on to the screen and the script file.
-      //  Echo is on, so we see here also the users keystrokes.
-      */
-      if (FD_ISSET(masterPty, &readmask)) {
+      if (n == 0) {
         /* 
-        //  The process died.
+        //  The user typed end-of-file; we're done.
         */
-        if ((n = read(masterPty, buf, sizeof(buf))) <= 0) {
-          finish(0);
-        } else {
-          dologging(buf, n);
-          write(STDOUT_FILENO, buf, n);
-        }
+        finish(0);
+      }
+      if (write(masterPty, buf, n) != n) {
+        perror("write: pty");
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    /* 
+    //  There's output on the pseudo-tty... 
+    //  Read it and pass it on to the screen and the script file.
+    //  Echo is on, so we see here also the users keystrokes.
+    */
+    if (FD_ISSET(masterPty, &readmask)) {
+      /* 
+      //  The process died.
+      */
+      if ((n = read(masterPty, buf, sizeof(buf))) <= 0) {
+        finish(0);
+      } else {
+        dologging(buf, n);
+        write(STDOUT_FILENO, buf, n);
       }
     }
   }
   exit(EXIT_SUCCESS);
+}
+
+void execShell(const char *shell, const char *shellCommands) {
+  /*
+  //
+  //  dashShell		The basename of shell, prepended with "-".
+  //  
+  //  sucmd		The path to the su command.
+  //
+  */
+  char *dashShell;
+  char *sucmd = SUCMD;
+  
+  /* 
+  //  This process will exec a shell.
+  //  If rootsh was called with the -u user parameter, we will exec
+  //  su user instead of a shell.
+  */
+  if (runAsUser) {
+    shell = sucmd;
+  }
+  /*
+  //  If rootsh was called with the -i parameter (initial login)
+  //  then prepend the shell's basename with a dash,
+  //  otherwise call it as an interactive shell.
+  */
+  if (useLoginShell) {
+    dashShell = strdup(shell);
+    dashShell = strrchr(dashShell, '/');
+    dashShell[0] = '-';
+  } else {
+    dashShell = NULL;
+  }
+  /*DEBUG fprintf(stderr, "shell commands #%s#\n", shellCommands);*/
+  if (runAsUser && useLoginShell && shellCommands) {
+    execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
+  } else if (runAsUser && useLoginShell && !shellCommands) {
+    execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, 0, (char *)NULL);
+  } else if (runAsUser && !useLoginShell && shellCommands) {
+    execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, 0, (char *)NULL);
+  } else if (runAsUser && !useLoginShell && !shellCommands) {
+    execl(shell, (strrchr(shell, '/') + 1), runAsUser, 0, (char *)NULL);
+  } else if (!runAsUser && useLoginShell && shellCommands) {
+    execl(shell, dashShell, "-c", shellCommands, 0, (char *)NULL);
+  } else if (!runAsUser && useLoginShell && !shellCommands) {
+    execl(shell, dashShell, 0, (char *)NULL);
+  } else if (!runAsUser && !useLoginShell && shellCommands) {
+    execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, 0, (char *)NULL);
+  } else if (!runAsUser && !useLoginShell && !shellCommands) {
+    execl(shell, (strrchr(shell, '/') + 1), "-i", 0, (char *)NULL);
+  } else {
+    perror(shell);
+  }
+  perror(progName);
+  exit(EXIT_FAILURE);
 }
 
 /**
