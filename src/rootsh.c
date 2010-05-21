@@ -251,6 +251,7 @@ int main(int argc, char **argv) {
   */
   strncpy(progName, basename(argv[0]), (MAXPATHLEN - 1));
 
+  sleep(10);
   while (1) {
     c = getopt_long (argc, argv, "hViu:f:d:xyc:",
         long_options, &option_index);
@@ -262,7 +263,6 @@ int main(int argc, char **argv) {
       shellCommands = consume_remaining_args(argc, argv, shellCommands);
       break;
     }
-    sleep(10);
     switch (c) {
       case 'h':		
       case '?':
@@ -330,29 +330,41 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  /* 
-  //  Save original terminal parameters.
-  */
-  tcgetattr(STDIN_FILENO, &termParams);
-  /*
-  //  Save original window size.
-  */
-  ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+  if(isatty(0)) {
+    /* 
+    //  Save original terminal parameters.
+    */
+    tcgetattr(STDIN_FILENO, &termParams);
+    /*
+    //  Save original window size.
+    */
+    ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
   
-  /* 
-  //  fork a child process, create a pty pair, 
-  //  make the slave the controlling terminal,
-  //  create a new session, become session leader 
-  //  and attach filedescriptors 0-2 to the slave pty.
-  */
-  if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
-    perror("fork");
-    exit(EXIT_FAILURE);
-  }
-  if (childPid == 0) {
-    execShell(shell, shellCommands);
+    /* 
+    //  fork a child process, create a pty pair, 
+    //  make the slave the controlling terminal,
+    //  create a new session, become session leader 
+    //  and attach filedescriptors 0-2 to the slave pty.
+    */
+    if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
+      perror("fork");
+      exit(EXIT_FAILURE);
+    }
+    if (childPid == 0) {
+      execShell(shell, shellCommands);
+    } else {
+      logSession(childPid);
+    }
   } else {
-    logSession(childPid);
+    int msglen;
+    char msgbuf[BUFSIZ];
+
+    /* note that it's not a tty and exec the shell */
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) -1),
+                      "Not a tty, just execing command\n");
+    dologging(msgbuf, msglen);
+    endlogging();
+    execShell(shell, shellCommands);
   }
   exit(EXIT_SUCCESS);
 }
@@ -391,35 +403,34 @@ void logSession(const int childPid) {
   signal(SIGWINCH, handle_sig_winch);
   sigwinch_received = 0;
 
-  if(isatty(0)) {
-    newTty = termParams;
-    /* 
-    //  Let read not return until at least 1 byte has been received.
-    */
-    newTty.c_cc[VMIN] = 1; 
-    newTty.c_cc[VTIME] = 0;
-    /* 
-    //  Don't perform output processing.
-    */
-    newTty.c_oflag &= ~OPOST;
-    /* 
-    //  Noncanonical input | signal characters off |echo off.
-    */
-    newTty.c_lflag &= ~(ICANON|ISIG|ECHO);
-    /* 
-    //  NL to CR off | don't ignore CR | CR to NL off |
-    //  Case sensitive input (not known to FreeBSD) | 
-    //  no output flow control 
-    */
-    newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
-    /* 
-    //  Set the new tty modes.
-    */
-    if (tcsetattr(0, TCSANOW, &newTty) < 0) {
-      perror("tcsetattr: stdin");
-      exit(EXIT_FAILURE);
-    }
-  }    
+  newTty = termParams;
+  /* 
+  //  Let read not return until at least 1 byte has been received.
+  */
+  newTty.c_cc[VMIN] = 1; 
+  newTty.c_cc[VTIME] = 0;
+  /* 
+  //  Don't perform output processing.
+  */
+  newTty.c_oflag &= ~OPOST;
+  /* 
+  //  Noncanonical input | signal characters off |echo off.
+  */
+  newTty.c_lflag &= ~(ICANON|ISIG|ECHO);
+  /* 
+  //  NL to CR off | don't ignore CR | CR to NL off |
+  //  Case sensitive input (not known to FreeBSD) | 
+  //  no output flow control 
+  */
+  newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
+  /* 
+  //  Set the new tty modes.
+  */
+  if (tcsetattr(0, TCSANOW, &newTty) < 0) {
+    perror("tcsetattr: stdin");
+    exit(EXIT_FAILURE);
+  }
+  
   /* 
   //  Now just sit in a loop reading from the keyboard and
   //  writing to the pseudo-tty, and reading from the  
@@ -525,7 +536,6 @@ void execShell(const char *shell, const char *shellCommands) {
   } else {
     dashShell = NULL;
   }
-  /*DEBUG fprintf(stderr, "shell commands #%s#\n", shellCommands);*/
   if (runAsUser && useLoginShell && shellCommands) {
     execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
   } else if (runAsUser && useLoginShell && !shellCommands) {
@@ -727,11 +737,6 @@ int beginlogging(const char *shellCommands) {
          runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
          ttyname(0), ctime(&now));
     write(logFile, msgbuf, msglen);
-    if(NULL != shellCommands) {
-      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-                        "args: %s", shellCommands);
-      write(logFile, msgbuf, msglen);
-    }
   }
 #endif
 #ifdef LOGTOSYSLOG
@@ -762,6 +767,13 @@ int beginlogging(const char *shellCommands) {
     }
   }
 #endif
+
+  if(NULL != shellCommands) {
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                      "shell commands: %s\n", shellCommands);
+    dologging(msgbuf, msglen);
+  }
+  
   return(1);
 }
 
@@ -1089,13 +1101,16 @@ char *setupshell() {
       return(NULL);
     }
     /*
-    //  If SHELL is /bin/rootsh and argv[0] is -rootsh we were probably
+    //  If SHELL is rootsh and argv[0] is -rootsh or rootsh we were probably
     //  started as a commandline interpreter found in /etc/passwd.
     //  We cannot execute ourself again. Find a real shell.
     */
-    if (*progName == '-' && ! strcmp(basename(shell), progName + 1)) {
-      shell = calloc(sizeof(char), strlen(defaultshell()) + 1);
-      strcpy(shell, defaultshell());
+    if( (*progName == '-' && strcmp(basename(shell), progName + 1) == 0 )
+         || strcmp(basename(shell), progName) == 0
+         ) {
+      char *dshell = defaultshell();
+      shell = calloc(sizeof(char), strlen(dshell) + 1);
+      strcpy(shell, dshell);
       shellenv = calloc(sizeof(char), strlen(shell) + 7);
       sprintf(shellenv, "SHELL=%s", shell);
       putenv(shellenv);
