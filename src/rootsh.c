@@ -251,7 +251,6 @@ int main(int argc, char **argv) {
   */
   strncpy(progName, basename(argv[0]), (MAXPATHLEN - 1));
 
-  sleep(10);
   while (1) {
     c = getopt_long (argc, argv, "hViu:f:d:xyc:",
         long_options, &option_index);
