@@ -48,6 +48,9 @@ mechanism.
 %{_localstatedir}/log/rootsh/
 
 %changelog
+* Tue Jun 15 2010 Jon Schewe <jpschewe@mtu.net>
+- Released 1.5.3.1 with bugs from SF fixed and patches applied
+
 * Wed May 14 2008 Corey Henderson <corman@cormander.com>
 - Re-released as 1.5.3 with 4 patches
 
