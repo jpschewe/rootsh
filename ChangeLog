@@ -87,3 +87,14 @@
 	* added ability to scp files to an account where rootsh is the user's shell
 	* updated GPL to version 3
 	* released as 1.5.3
+
+2010-05-11 Jon Schewe <jpschewe@mtu.net>
+	* fix open calls to correctly specify mode
+	* remove warning about unused computed value
+	
+2010-05-17 Jon Schewe <jpschewe@mtu.net>
+	* regenerated auto files with newer auto tools
+	
+2010-05-20 Jon Schewe <jpschewe@mtu.net>
+	* fixed handling of sftp and scp
+	
