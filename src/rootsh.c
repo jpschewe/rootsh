@@ -382,7 +382,7 @@ void logSession(const int childPid) {
   int n;
   fd_set readmask;
   char buf[BUFSIZ];
-  
+
   /* 
   //  Handle these signals (posix functions preferred).
   */
@@ -536,21 +536,21 @@ void execShell(const char *shell, const char *shellCommands) {
     dashShell = NULL;
   }
   if (runAsUser && useLoginShell && shellCommands) {
-    execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, 0, (char *)NULL);
+    execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, (char *)NULL);
   } else if (runAsUser && useLoginShell && !shellCommands) {
-    execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, 0, (char *)NULL);
+    execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, (char *)NULL);
   } else if (runAsUser && !useLoginShell && shellCommands) {
-    execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, 0, (char *)NULL);
+    execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, (char *)NULL);
   } else if (runAsUser && !useLoginShell && !shellCommands) {
-    execl(shell, (strrchr(shell, '/') + 1), runAsUser, 0, (char *)NULL);
+    execl(shell, (strrchr(shell, '/') + 1), runAsUser, (char *)NULL);
   } else if (!runAsUser && useLoginShell && shellCommands) {
-    execl(shell, dashShell, "-c", shellCommands, 0, (char *)NULL);
+    execl(shell, dashShell, "-c", shellCommands, (char *)NULL);
   } else if (!runAsUser && useLoginShell && !shellCommands) {
-    execl(shell, dashShell, 0, (char *)NULL);
+    execl(shell, dashShell, (char *)NULL);
   } else if (!runAsUser && !useLoginShell && shellCommands) {
-    execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, 0, (char *)NULL);
+    execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, (char *)NULL);
   } else if (!runAsUser && !useLoginShell && !shellCommands) {
-    execl(shell, (strrchr(shell, '/') + 1), "-i", 0, (char *)NULL);
+    execl(shell, (strrchr(shell, '/') + 1), "-i", (char *)NULL);
   } else {
     perror(shell);
   }
