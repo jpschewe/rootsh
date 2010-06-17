@@ -35,7 +35,8 @@ build_triplet = @build@
 host_triplet = @host@
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(top_srcdir)/configure AUTHORS COPYING \
+	$(srcdir)/Makefile.in $(top_srcdir)/configure \
+	$(top_srcdir)/contrib/linux/rootsh.spec.in AUTHORS COPYING \
 	ChangeLog INSTALL NEWS THANKS config/config.guess \
 	config/config.sub config/depcomp config/install-sh \
 	config/missing config/mkinstalldirs
@@ -48,7 +49,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/src/config.h
-CONFIG_CLEAN_FILES =
+CONFIG_CLEAN_FILES = contrib/linux/rootsh.spec
 CONFIG_CLEAN_VPATH_FILES =
 SOURCES =
 DIST_SOURCES =
@@ -263,6 +264,8 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 $(am__aclocal_m4_deps):
+contrib/linux/rootsh.spec: $(top_builddir)/config.status $(top_srcdir)/contrib/linux/rootsh.spec.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-man1: $(man_MANS)
 	@$(NORMAL_INSTALL)
 	test -z "$(man1dir)" || $(MKDIR_P) "$(DESTDIR)$(man1dir)"

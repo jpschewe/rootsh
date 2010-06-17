@@ -8,3 +8,4 @@ src/rootsh
 src/stamp-h1
 autom4te.cache/
 *.o
+contrib/linux/rootsh.spec

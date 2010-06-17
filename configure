@@ -1855,6 +1855,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 ac_config_headers="$ac_config_headers src/config.h"
 
 
@@ -7034,7 +7035,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile src/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile contrib/linux/rootsh.spec"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -7679,6 +7680,7 @@ do
     "src/getopt.h") CONFIG_LINKS="$CONFIG_LINKS src/getopt.h:src/gnugetopt.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
+    "contrib/linux/rootsh.spec") CONFIG_FILES="$CONFIG_FILES contrib/linux/rootsh.spec" ;;
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 $as_echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
