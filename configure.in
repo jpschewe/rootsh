@@ -240,6 +240,7 @@ AC_HEADER_STDC([])
 AC_CHECK_HEADERS([string.h fcntl.h sys/file.h sys/param.h stropts.h])
 AC_CHECK_HEADERS([libgen.h])
 AC_CHECK_HEADERS([pty.h])
+AC_CHECK_HEADERS([util.h])
 
 
 dnl  ----- Find functions

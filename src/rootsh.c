@@ -53,6 +53,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #if HAVE_PTY_H
 #  include <pty.h>
 #endif
+#if HAVE_UTIL_H
+#  include <util.h>
+#endif
 
 #if HAVE_SYS_PARAM_H
 #  include <sys/param.h>
