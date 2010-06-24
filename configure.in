@@ -452,6 +452,9 @@ case "$host_os" in
     ;;
 esac
 
+# make all warnings be errors
+CFLAGS="$CFLAGS -Werror"
+
 AC_PATH_PROG(SUCMD, su, "/bin/false")
 AC_DEFINE_UNQUOTED(SUCMD,"$SUCMD", "path to the su command")
 
