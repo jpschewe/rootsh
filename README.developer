@@ -1,0 +1,2 @@
+To develop code you need to run ./bootstrap.sh first, that will create
+the configure script needed to build.
