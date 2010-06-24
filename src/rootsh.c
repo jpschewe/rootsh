@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef S_SPLINT_S
 #  include <err.h>
 #endif
+#include <sys/ioctl.h>
 #include <errno.h>
 #include "config.h"
 #include <sys/param.h>
