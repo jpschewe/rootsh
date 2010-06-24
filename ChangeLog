@@ -97,4 +97,7 @@
 	
 2010-05-20 Jon Schewe <jpschewe@mtu.net>
 	* fixed handling of sftp and scp
+
+2010-06-24 Jon Schewe <jpschewe@mtu.net>
+	* Added support for Mac and NetBSD
 	
