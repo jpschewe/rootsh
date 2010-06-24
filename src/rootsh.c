@@ -422,7 +422,11 @@ void logSession(const int childPid) {
   //  Case sensitive input (not known to FreeBSD) | 
   //  no output flow control 
   */
+#ifdef IUCLC
   newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|IXON);
+#else
+  newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IXON);
+#endif
   /* 
   //  Set the new tty modes.
   */
