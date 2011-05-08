@@ -505,7 +505,10 @@ void logSession(const int childPid) {
         finish(0);
       } else {
         dologging(buf, n);
-        write(STDOUT_FILENO, buf, n);
+        if(write(STDOUT_FILENO, buf, n) < 0) {
+          perror("write: stdout");
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }
@@ -743,7 +746,10 @@ int beginlogging(const char *shellCommands) {
          isaLoginShell ? "login " : "", progName, userName, 
          runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
          ttyname(0), ctime(&now));
-    write(logFile, msgbuf, msglen);
+    if(write(logFile, msgbuf, msglen) < 0) {
+      perror(logFileName);
+      return(0);
+    }
   }
 #endif
 #ifdef LOGTOSYSLOG
@@ -793,7 +799,10 @@ int beginlogging(const char *shellCommands) {
 void dologging(char *msgbuf, int msglen) {
 #ifdef LOGTOFILE
   if (logtofile) {
-    write(logFile, msgbuf, msglen);
+    if(write(logFile, msgbuf, msglen) < 0) {
+      perror("Error writing to logfile");
+      return;
+    }
   }
 #endif
 #ifdef LOGTOSYSLOG
@@ -848,7 +857,11 @@ void endlogging() {
         "%s session closed for %s on %s at %s", 
         *progName == '-' ? progName + 1 : progName,
         userName, ttyname(0), ctime(&now)); 
-    write(logFile, msgbuf, msglen);
+    if(write(logFile, msgbuf, msglen) < 0) {
+      perror("Error writing to logfile");
+      return;
+    }
+
     /*
     //  From here on, a filled message buffer means an error has occurred.
     */
