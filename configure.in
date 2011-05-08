@@ -1,5 +1,5 @@
 dnl  ----- Start off like we always need to
-AC_INIT([rootsh],[1.5.3.2])
+AC_INIT([rootsh],[1.5.4])
 AC_CONFIG_SRCDIR(src)
 
 dnl ---- AC_CONFIG_HEADER(src/config.h)
