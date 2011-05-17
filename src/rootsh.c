@@ -192,12 +192,14 @@ volatile sig_atomic_t sigwinch_received;
 
 static char progName[MAXPATHLEN];
 static char sessionId[MAXPATHLEN + 11];
+#ifdef LOGTOFILE
 static int logFile;
+static ino_t logInode;
+static dev_t logDev;
+#endif
 static char logFileName[MAXPATHLEN - 9];
 static char *userLogFileName;
 static char *userLogFileDir;
-static ino_t logInode;
-static dev_t logDev;
 #ifndef LOGTOFILE
 static int logtofile = 0;
 #else 
@@ -660,12 +662,13 @@ int beginlogging(const char *shellCommands) {
   //			inode and device.
   //  
   */
-#ifdef LOGTOFILE
-  time_t now;
+  int msglen;
   char msgbuf[BUFSIZ];
-  char defLogFileName[MAXPATHLEN - 7];
-  int sec, min, hour, day, month, year, msglen;
+#ifdef LOGTOFILE
   struct stat statBuf;
+  time_t now;
+  char defLogFileName[MAXPATHLEN - 7];
+  int sec, min, hour, day, month, year;
 #endif
 #ifdef LOGTOSYSLOG
   static char sessionIdWithUid[sizeof(sessionId) + 10];
