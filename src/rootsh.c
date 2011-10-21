@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
       {"help", 0, 0, 'h'},
       {"version", 0, 0, 'V'},
       {"user", 1, 0, 'u'},
-      {"initial", 0, 0, 'i'},
+      {"login", 0, 0, 'i'},
       {"logfile", 1, 0, 'f'},
       {"logdir", 1, 0, 'd'},
       {"no-logfile", 0, 0, 'x'},
