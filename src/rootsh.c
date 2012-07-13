@@ -665,12 +665,10 @@ int beginlogging(const char *shellCommands) {
   */
   int msglen;
   char msgbuf[BUFSIZ];
-#ifdef LOGTOFILE
   struct stat statBuf;
   time_t now;
   char defLogFileName[MAXPATHLEN - 7];
   int sec, min, hour, day, month, year;
-#endif
 #ifdef LOGTOSYSLOG
   static char sessionIdWithUid[sizeof(sessionId) + 10];
 #endif
@@ -680,7 +678,6 @@ int beginlogging(const char *shellCommands) {
     return (0);
   }
 
-#ifdef LOGTOFILE
   if (logtofile) {
     /*
     //  Construct the logfile name. 
@@ -755,7 +752,7 @@ int beginlogging(const char *shellCommands) {
       return(0);
     }
   }
-#endif
+
 #ifdef LOGTOSYSLOG
   if(logtosyslog) {
     /* 
@@ -801,14 +798,11 @@ int beginlogging(const char *shellCommands) {
 */
 
 void dologging(char *msgbuf, int msglen) {
-#ifdef LOGTOFILE
   if (logtofile) {
     if(write(logFile, msgbuf, msglen) < 0) {
       perror("Error writing to logfile");
-      return;
     }
   }
-#endif
 #ifdef LOGTOSYSLOG
   if (logtosyslog) {
 #ifdef LINECNT
@@ -850,15 +844,12 @@ void endlogging() {
   //			inode and device.
   //  
   */
-#ifdef LOGTOFILE
   time_t now;
   int msglen;
   char msgbuf[BUFSIZ];
   struct stat statBuf;
   char closedLogFileName[MAXPATHLEN];
-#endif
 
-#ifdef LOGTOFILE
   if (logtofile) {
     now = time(NULL);
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
@@ -943,7 +934,7 @@ void endlogging() {
       rename(logFileName, closedLogFileName);
     } 
   }
-#endif
+
 #ifdef LOGTOSYSLOG
   if (logtosyslog) {
 #ifdef LINECNT
@@ -1573,9 +1564,7 @@ char **build_scp_args( char *str, size_t reserve ) {
 
 void version() {
   printf("%s version %s\n", progName,VERSION);
-#ifdef LOGTOFILE
   printf("logfiles go to directory %s\n", LOGDIR);
-#endif
 #ifdef LOGTOSYSLOG
   printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
 #else
