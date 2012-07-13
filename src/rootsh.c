@@ -669,9 +669,7 @@ int beginlogging(const char *shellCommands) {
   time_t now;
   char defLogFileName[MAXPATHLEN - 7];
   int sec, min, hour, day, month, year;
-#ifdef LOGTOSYSLOG
   static char sessionIdWithUid[sizeof(sessionId) + 10];
-#endif
 
   if (logtofile == 0 && logtosyslog == 0) {
     fprintf(stderr, "you cannot switch off both file and syslog logging\n");
@@ -753,7 +751,6 @@ int beginlogging(const char *shellCommands) {
     }
   }
 
-#ifdef LOGTOSYSLOG
   if(logtosyslog) {
     /* 
     //  Prepare usage of syslog with sessionid as prefix.
@@ -780,7 +777,6 @@ int beginlogging(const char *shellCommands) {
           ttyname(0), isaLoginShell ? "login " : "", sessionId);
     }
   }
-#endif
 
   if(NULL != shellCommands) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
@@ -803,7 +799,7 @@ void dologging(char *msgbuf, int msglen) {
       perror("Error writing to logfile");
     }
   }
-#ifdef LOGTOSYSLOG
+
   if (logtosyslog) {
 #ifdef LINECNT
     write2syslog(msgbuf, msglen, true);
@@ -811,7 +807,7 @@ void dologging(char *msgbuf, int msglen) {
     write2syslog(msgbuf, msglen, false);
 #endif
   }
-#endif
+
 }
 
 
@@ -935,7 +931,7 @@ void endlogging() {
     } 
   }
 
-#ifdef LOGTOSYSLOG
+
   if (logtosyslog) {
 #ifdef LINECNT
     write2syslog("\r\n", 2, true);
@@ -946,7 +942,7 @@ void endlogging() {
         userName, ttyname(0), progName, sessionId);
     closelog();
   }
-#endif
+
 }
 
 
@@ -1565,11 +1561,7 @@ char **build_scp_args( char *str, size_t reserve ) {
 void version() {
   printf("%s version %s\n", progName,VERSION);
   printf("logfiles go to directory %s\n", LOGDIR);
-#ifdef LOGTOSYSLOG
   printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
-#else
-  printf("no syslog logging\n");
-#endif
 #ifdef LINECNT
   printf("line numbering is on\n");
 #else
