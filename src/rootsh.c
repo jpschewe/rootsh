@@ -219,6 +219,12 @@ static bool syslogLogUsername = true;
 static bool syslogLogUsername = false;
 #endif
 
+#ifdef LINECNT
+static bool syslogLogLineCount = true;
+#else
+static bool syslogLogLineCount = false;
+#endif
+
 static char *userName;
 static char *runAsUser;
 static int standalone;
@@ -809,11 +815,7 @@ void dologging(char *msgbuf, int msglen) {
   }
 
   if (logtosyslog) {
-#ifdef LINECNT
-    write2syslog(msgbuf, msglen, true);
-#else
-    write2syslog(msgbuf, msglen, false);
-#endif
+    write2syslog(msgbuf, msglen, syslogLogLineCount);
   }
 
 }
@@ -941,11 +943,7 @@ void endlogging() {
 
 
   if (logtosyslog) {
-#ifdef LINECNT
-    write2syslog("\r\n", 2, true);
-#else
-    write2syslog("\r\n", 2, false);
-#endif
+    write2syslog("\r\n", 2, syslogLogLineCount);
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
         userName, ttyname(0), progName, sessionId);
     closelog();
@@ -1570,11 +1568,11 @@ void version() {
   printf("%s version %s\n", progName,VERSION);
   printf("logfiles go to directory %s\n", LOGDIR);
   printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
-#ifdef LINECNT
-  printf("line numbering is on\n");
-#else
-  printf("line numbering is off\n");
-#endif
+  if(syslogLogLineCount) {
+    printf("line numbering is on\n");
+  } else {
+    printf("line numbering is off\n");
+  }
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
 #endif
