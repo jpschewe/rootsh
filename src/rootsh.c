@@ -203,14 +203,14 @@ static char *userLogFileName;
 static char *userLogFileDir;
 
 #ifndef LOGTOFILE
-static int logtofile = 0;
+static bool logtofile = false;
 #else 
-static int logtofile = 1;
+static bool logtofile = true;
 #endif
 #ifndef LOGTOSYSLOG
-static int logtosyslog = 0;
+static bool logtosyslog = false;
 #else
-static int logtosyslog = 1;
+static bool logtosyslog = true;
 #endif
 
 #ifdef LOGUSERNAMETOSYSLOG
@@ -306,10 +306,10 @@ int main(int argc, char **argv) {
         userLogFileDir = strdup(optarg);
         break;
       case 'x':
-        logtofile = 0;
+        logtofile = false;
         break;
       case 'y':
-        logtosyslog = 0;
+        logtosyslog = false;
         break;
       default:
         usage ();
@@ -679,7 +679,7 @@ int beginlogging(const char *shellCommands) {
   int sec, min, hour, day, month, year;
   static char sessionIdWithUid[sizeof(sessionId) + 10];
 
-  if (logtofile == 0 && logtosyslog == 0) {
+  if (!logtofile && !logtosyslog) {
     fprintf(stderr, "you cannot switch off both file and syslog logging\n");
     return (0);
   }
