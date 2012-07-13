@@ -33,7 +33,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <errno.h>
 #include "config.h"
 
-extern void write2syslog(const char *oBuffer, size_t oCharCount);
+#include "write2syslog.h"
+
 char *stripesc(char *escBuffer);
 
 #define OBUFSIZ 1024
@@ -176,15 +177,7 @@ char *stripesc(char *escBuffer) {
 }
 
 
-
-/*
-//  takes a variable sized string
-//  breaks the string into pieces (lines) separated by \r
-//  cleans the lines from escape sequences and writes it to syslog
-//  keeps remainings (not closed by a newline) in a static area
-*/
-
-void write2syslog(const char *optr, size_t optrLength) {
+void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
   static size_t rptrLength = 0;
   /* 
   //  buffer where remaining input will be kept 
@@ -206,13 +199,12 @@ void write2syslog(const char *optr, size_t optrLength) {
   //  signals the last output character was a '\r' 
   */
   static int rflag = 0;           
-#ifdef LINECNT
+
   /*
   //  a 3-digit counter which prepends each line sent to the syslog server 
   //  this allows the detection of dropped lines 
   */
   static int linecnt = 0;
-#endif
   
   /* 
   //  ignore empty input 
@@ -285,12 +277,12 @@ void write2syslog(const char *optr, size_t optrLength) {
     /*
     //  send the resulting line to syslog 
     */
-#ifdef LINECNT
-    syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%03d: %s", linecnt++, eptr);
-    if (linecnt == 101) linecnt = 0;
-#else
-    syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s", eptr);
-#endif
+    if(useLinecnt) {
+      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%03d: %s", linecnt++, eptr);
+      if (linecnt == 101) linecnt = 0;
+    } else {
+      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s", eptr);
+    }
     /*
     //  release the escape-free buffer 
     */

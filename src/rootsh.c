@@ -73,6 +73,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #  include "getopt.h"
 #endif
 
+#include <stdbool.h>
+
+#include "write2syslog.h"
+
 #if NEED_GETUSERSHELL_PROTO
 /* 
 //  solaris has no own prototypes for these three functions
@@ -106,9 +110,6 @@ int clearenv(void);
 #endif
 void version(void);
 void usage(void);
-#ifdef LOGTOSYSLOG
-extern void write2syslog(const void *, size_t);
-#endif
 #ifndef HAVE_FORKPTY
 pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
@@ -810,7 +811,11 @@ void dologging(char *msgbuf, int msglen) {
 #endif
 #ifdef LOGTOSYSLOG
   if (logtosyslog) {
-    write2syslog(msgbuf, msglen);
+#ifdef LINECNT
+    write2syslog(msgbuf, msglen, true);
+#else
+    write2syslog(msgbuf, msglen, false);
+#endif
   }
 #endif
 }
@@ -941,7 +946,11 @@ void endlogging() {
 #endif
 #ifdef LOGTOSYSLOG
   if (logtosyslog) {
-    write2syslog("\r\n", 2);
+#ifdef LINECNT
+    write2syslog("\r\n", 2, true);
+#else
+    write2syslog("\r\n", 2, false);
+#endif
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
         userName, ttyname(0), progName, sessionId);
     closelog();
