@@ -201,6 +201,7 @@ static dev_t logDev;
 static char logFileName[MAXPATHLEN - 9];
 static char *userLogFileName;
 static char *userLogFileDir;
+
 #ifndef LOGTOFILE
 static int logtofile = 0;
 #else 
@@ -211,6 +212,13 @@ static int logtosyslog = 0;
 #else
 static int logtosyslog = 1;
 #endif
+
+#ifdef LOGUSERNAMETOSYSLOG
+static bool syslogLogUsername = true;
+#else
+static bool syslogLogUsername = false;
+#endif
+
 static char *userName;
 static char *runAsUser;
 static int standalone;
@@ -755,13 +763,13 @@ int beginlogging(const char *shellCommands) {
     /* 
     //  Prepare usage of syslog with sessionid as prefix.
     */
-#ifdef LOGUSERNAMETOSYSLOG
-    snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
-        sessionId, userName);
-    openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
-#else
-    openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
-#endif
+    if(syslogLogUsername) {
+      snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
+               sessionId, userName);
+      openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
+    } else {
+      openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
+    }
     /* 
     //  Note the log file name in syslog if there is one.
     */
