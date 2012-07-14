@@ -152,12 +152,6 @@ char **build_scp_args( char *str, size_t reserve );
 //			and before the logfile will be closed. Should they
 //			be different, then somebody manipulated the logfile.
 //			
-//  logtofile		A flag indicating that logging to a file has 
-//			been switched off with --no-logfile.
-//
-//  logtosyslog		A flag indicating that logging to syslog has
-//			been switched off with --no-logfile.
-//
 //  userName		The name of the user who called this executable.
 //
 //  runAsUser		The name of the user under whose identity the shell
@@ -202,11 +196,20 @@ static char logFileName[MAXPATHLEN - 9];
 static char *userLogFileName;
 static char *userLogFileDir;
 
+/**
+ * True if logging to a file.
+ * Swtiched off with --no-logfile.
+ */
 #ifndef LOGTOFILE
 static bool logtofile = false;
 #else 
 static bool logtofile = true;
 #endif
+
+/**
+ * True if logging to syslog.
+ * Switched off with --no-syslog.
+ */
 #ifndef LOGTOSYSLOG
 static bool logtosyslog = false;
 #else
