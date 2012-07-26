@@ -28,6 +28,7 @@
 /* function declarations */
 bool testCommentLine(void);
 bool testConfigLine(void);
+bool testNotConfigLine(void);
 bool testTrimWhitespace(void);
 bool testAllWhitespace(void);
 
@@ -93,6 +94,16 @@ bool testConfigLine(void) {
   }
 }
 
+bool testNotConfigLine(void) {
+  char const * line = "var\n";
+  
+  if(!isConfigLine(line)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 int main(int argc, char **argv) {
   int retval = 0;
 
@@ -122,6 +133,14 @@ int main(int argc, char **argv) {
   
   printf("testConfigLine:\n");
   if(!testConfigLine()) {
+    printf("\tFAILED\n");
+    retval = 1;
+  } else {
+    printf("\tPASSED\n");
+  }
+
+  printf("testNotConfigLine:\n");
+  if(!testNotConfigLine()) {
     printf("\tFAILED\n");
     retval = 1;
   } else {
