@@ -19,9 +19,85 @@
 
 */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+
 #include "configParser.h"
 
+/* function declarations */
+bool testCommentLine(void);
+bool testConfigLine(void);
+bool testTrimWhitespace(void);
+
+
+/* implementations */
+bool testTrimWhitespace(void) {
+  char const *line = "   Something in between  \n";
+  char const *expected = "Something in between";
+  char *actual = trimWhitespace(line);
+  bool retval;
+  
+  if(NULL == actual) {
+    return false;
+  }
+
+  if(0 == strcmp(expected, actual)) {
+    retval = true;
+  } else {
+    retval = false;
+  }
+  
+  free(actual);
+  return retval;
+}
+
+bool testCommentLine(void) {
+  char const * line = "# this is a comment\n";
+  
+  if(!isConfigLine(line)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool testConfigLine(void) {
+  char const * line = "var = 10\n";
+  
+  if(isConfigLine(line)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 int main(int argc, char **argv) {
-  /*FIXME needs implementation*/
-  return 1;
+  int retval = 0;
+
+  printf("testTrimWhitespace: ");
+  if(!testTrimWhitespace()) {
+    printf("FAILED\n");
+    retval = 1;
+  } else {
+    printf("PASSED\n");
+  }
+  
+  printf("testCommentLine: ");
+  if(!testCommentLine()) {
+    printf("FAILED\n");
+    retval = 1;
+  } else {
+    printf("PASSED\n");
+  }
+  
+  printf("testConfigLine: ");
+  if(!testConfigLine()) {
+    printf("FAILED\n");
+    retval = 1;
+  } else {
+    printf("PASSED\n");
+  }
+  
+  return retval;
 }
