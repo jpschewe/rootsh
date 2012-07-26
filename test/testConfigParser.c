@@ -29,7 +29,7 @@
 bool testCommentLine(void);
 bool testConfigLine(void);
 bool testTrimWhitespace(void);
-
+bool testAllWhitespace(void);
 
 /* implementations */
 bool testTrimWhitespace(void) {
@@ -37,7 +37,28 @@ bool testTrimWhitespace(void) {
   char const *expected = "Something in between";
   char *actual = trimWhitespace(line);
   bool retval;
+
+  if(NULL == actual) {
+    return false;
+  }
+
+  if(0 == strcmp(expected, actual)) {
+    retval = true;
+  } else {
+    printf("Bad trimmed value: '%s'\n", actual);
+    retval = false;
+  }
   
+  free(actual);
+  return retval;
+}
+
+bool testAllWhitespace(void) {
+  char const *line = "   \t \v \f \r  \n";
+  char const *expected = "";
+  char *actual = trimWhitespace(line);
+  bool retval;
+
   if(NULL == actual) {
     return false;
   }
@@ -75,28 +96,36 @@ bool testConfigLine(void) {
 int main(int argc, char **argv) {
   int retval = 0;
 
-  printf("testTrimWhitespace: ");
+  printf("testAllWhitespace:\n");
+  if(!testAllWhitespace()) {
+    printf("\tFAILED\n");
+    retval = 1;
+  } else {
+    printf("\tPASSED\n");
+  }
+  
+  printf("testTrimWhitespace:\n");
   if(!testTrimWhitespace()) {
-    printf("FAILED\n");
+    printf("\tFAILED\n");
     retval = 1;
   } else {
-    printf("PASSED\n");
+    printf("\tPASSED\n");
   }
-  
-  printf("testCommentLine: ");
+
+  printf("testCommentLine:\n");
   if(!testCommentLine()) {
-    printf("FAILED\n");
+    printf("\tFAILED\n");
     retval = 1;
   } else {
-    printf("PASSED\n");
+    printf("\tPASSED\n");
   }
   
-  printf("testConfigLine: ");
+  printf("testConfigLine:\n");
   if(!testConfigLine()) {
-    printf("FAILED\n");
+    printf("\tFAILED\n");
     retval = 1;
   } else {
-    printf("PASSED\n");
+    printf("\tPASSED\n");
   }
   
   return retval;
