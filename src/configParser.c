@@ -22,7 +22,8 @@
 
 #include "configParser.h"
 #include <strings.h>
-#include <stdio.h>
+#include <stdlib.h>
+
 
 static bool isWhitespace(char const data) {
   return data == ' '
@@ -34,9 +35,6 @@ static bool isWhitespace(char const data) {
 }
 
 
-/**
- * 
- */
 char * trimWhitespace(char const * const data) {
   size_t const len = strlen(data);
   size_t newLen = 0;
@@ -96,6 +94,10 @@ bool splitConfigLine(char const * const line,
   char *equals;
   size_t actualKeyLength;
   size_t actualValueLength;
+  char *tempKey;
+  char *tempValue;
+  char *trimmedKey;
+  char *trimmedValue;
   
   if(!isConfigLine(line)) {
     return false;
@@ -107,25 +109,40 @@ bool splitConfigLine(char const * const line,
   }
 
   actualKeyLength = equals - line;
-  /*FIXME debug*/
-  printf("Actual key length: %d\n", (int)actualKeyLength);
   if(actualKeyLength >= keyLength) {
     /* too big */
     return false;
   }
 
   actualValueLength = strlen(line) - actualKeyLength - 1;
-  /*FIXME debug*/
-  printf("Actual value length: %d\n", (int)actualValueLength);
   if(actualValueLength >= valueLength) {
     return false;
   }
 
-  strncpy(key, line, actualKeyLength);
-  key[actualKeyLength] = '\0';
   
-  strncpy(value, equals+1, actualValueLength);
-  value[actualKeyLength] = '\0';
+  /* create the key */
+  tempKey = malloc(actualKeyLength+1);
+  strncpy(tempKey, line, actualKeyLength);
+  tempKey[actualKeyLength] = '\0';
+  
+  trimmedKey = trimWhitespace(tempKey);
+  
+  strcpy(key, trimmedKey);
+  
+  free(tempKey);
+  free(trimmedKey);
+  
+
+  tempValue = malloc(actualValueLength+1);
+  strncpy(tempValue, equals+1, actualValueLength);
+  tempValue[actualValueLength] = '\0';
+  
+  trimmedValue = trimWhitespace(tempValue);
+  
+  strcpy(value, trimmedValue);
+  
+  free(tempValue);
+  free(trimmedValue);
   
   return true;
 }
