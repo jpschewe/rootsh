@@ -31,6 +31,7 @@ bool testConfigLine(void);
 bool testNotConfigLine(void);
 bool testTrimWhitespace(void);
 bool testAllWhitespace(void);
+bool testSplitLine(void);
 
 /* implementations */
 bool testTrimWhitespace(void) {
@@ -104,6 +105,31 @@ bool testNotConfigLine(void) {
   }
 }
 
+bool testSplitLine(void) {
+  char const *line = "var = 10\n";
+  char const *expectedKey = "var";
+  char const *expectedValue = "10";
+  char key[256];
+  char value[256];
+    
+  if(!splitConfigLine(line, sizeof(key), key, sizeof(value), value)) {
+    printf("splitConfigLine returned false\n");
+    return false;
+  }
+
+  if(0 != strcmp(expectedKey, key)) {
+    printf("Bad key. Expected: '%s' Actual: '%s'\n", expectedKey, key);
+    return false;
+  }
+
+  if(0 != strcmp(expectedValue, value)) {
+    printf("Bad value. Expected: '%s' Actual: '%s'\n", expectedValue, value);
+    return false;
+  }
+
+  return true;
+}
+
 int main(int argc, char **argv) {
   int retval = 0;
 
@@ -141,6 +167,14 @@ int main(int argc, char **argv) {
 
   printf("testNotConfigLine:\n");
   if(!testNotConfigLine()) {
+    printf("\tFAILED\n");
+    retval = 1;
+  } else {
+    printf("\tPASSED\n");
+  }
+
+  printf("testSplitLine:\n");
+  if(!testSplitLine()) {
     printf("\tFAILED\n");
     retval = 1;
   } else {
