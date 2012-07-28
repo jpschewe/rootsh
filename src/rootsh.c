@@ -76,6 +76,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdbool.h>
 
 #include "write2syslog.h"
+#include "configParser.h"
 
 #if NEED_GETUSERSHELL_PROTO
 /* 
@@ -89,6 +90,7 @@ void endusershell(void);
 /*
 //   our own functions 
 */
+void readConfigFile(void);
 void logSession(const int);
 void execShell(const char *, const char *);
 char *setupusername(void);
@@ -270,6 +272,8 @@ int main(int argc, char **argv) {
       {0, 0, 0, 0}
   };
 
+  readConfigFile();
+  
   /* 
   //  This should be rootsh, but it could have been renamed.
   */
@@ -1591,7 +1595,7 @@ void version() {
 //  Print available command line switches.
 */
 
-void usage() {
+void usage(void) {
   printf("Usage: %s [OPTION [ARG]] ...\n"
     " -?, --help            show this help statement\n"
     " -i, --login           start a (initial) login shell\n"
@@ -1602,4 +1606,35 @@ void usage() {
     " --no-syslog           switch off logging to syslog (standalone only)\n"
     " -V, --version         show version statement\n", progName);
   exit(0);
+}
+
+void readConfigFile(void) {
+  FILE *config = NULL;
+  char *line = NULL;
+  size_t lineSize = 0;
+  
+  config = fopen(CONFIGFILE, "r");
+  if(NULL == config) {
+    return;
+  }
+
+
+  while(-1 != getline(&line, &lineSize, config)) {
+    char key[256];
+    char value[256];
+    bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
+    
+    if(!result) {
+      fprintf(stderr, "Error parsing config file line '%s', skipping\n", line);
+    } else {
+      /* FIXME debugging */
+      printf("Found key: '%s' value: '%s'\n", key, value);
+    }
+    
+
+    free(line);
+    line = NULL;
+  }
+  
+  
 }
