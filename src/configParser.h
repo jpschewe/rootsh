@@ -62,3 +62,22 @@ bool splitConfigLine(char const * const line,
  * all characters are whitespace.
  */
 char * trimWhitespace(char const * const data);
+
+/**
+ * Trim whitespace from data.
+ *
+ * @param data the string to trim, must be NULL terminated
+ * @return newly allocated string with whitespace removed.
+ * Will be NULL in the case of an error, such as a failure
+ * to allocate memory. An empty string will be returned if
+ * all characters are whitespace.
+ */
+char * trimWhitespace(char const * const data);
+
+/**
+ * Parse data as a boolean. Any version of "true"
+ * is true, all else is false.
+ *
+ * @param data the string to compare, must be null terminated
+ */
+bool parseBool(char const * const data);

@@ -32,6 +32,7 @@ bool testNotConfigLine(void);
 bool testTrimWhitespace(void);
 bool testAllWhitespace(void);
 bool testSplitLine(void);
+bool testParseBool(void);
 
 /* implementations */
 bool testTrimWhitespace(void) {
@@ -130,9 +131,61 @@ bool testSplitLine(void) {
   return true;
 }
 
+bool testParseBool(void) {
+  if(!parseBool("true")) {
+    printf("'true' is not true\n");
+    return false;
+  }
+
+  if(!parseBool("True")) {
+    printf("'True' is not true\n");
+    return false;
+  }
+
+  if(!parseBool("TRUE")) {
+    printf("'TRUE' is not true\n");
+    return false;
+  }
+  
+  if(parseBool("false")) {
+    printf("'false' is not false\n");
+    return false;
+  }
+
+  if(parseBool("blort")) {
+    printf("'blort' is not false\n");
+    return false;
+  }
+
+  if(parseBool("")) {
+    printf("'' is not false\n");
+    return false;
+  }
+
+  if(parseBool(NULL)) {
+    printf("NULL is not false\n");
+    return false;
+  }
+
+  if(parseBool(0)) {
+    printf("0 is not false\n");
+    return false;
+  }
+  
+  return true;
+}
+
 int main(int argc, char **argv) {
   int retval = 0;
 
+  printf("testParseBool:\n");
+  if(!testParseBool()) {
+    printf("\tFAILED\n");
+    retval = 1;
+  } else {
+    printf("\tPASSED\n");
+  }
+  
   printf("testAllWhitespace:\n");
   if(!testAllWhitespace()) {
     printf("\tFAILED\n");

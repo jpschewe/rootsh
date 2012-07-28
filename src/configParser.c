@@ -146,3 +146,13 @@ bool splitConfigLine(char const * const line,
   
   return true;
 }
+
+bool parseBool(char const * const data) {
+  if(NULL == data) {
+    return false;
+  } else if(0 == strcasecmp("true", data)) {
+    return true;
+  } else {
+    return false;
+  }
+}

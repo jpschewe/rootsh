@@ -1,9 +1,5 @@
 rootsh Installation Instructions:
 
-coming soon: http://people.consol.de/~lausser/rootsh
-lausser@users.sourceforge.net
-
-
 Step 1. Decide if you want to have your logfiles in a non-standard place.
 
         Logfiles with names like <user>.<date><time>.<process id>
@@ -58,7 +54,7 @@ Step 5. Decide if you want to turn off writing the username into
 
 Step 6. Configure your installation
 
-	There are 6 options to configure rootsh.
+	There are some options to configure rootsh.
 
 	--disable-logfile
 
@@ -194,3 +190,5 @@ Mar 24 14:03:22 srv1 rootsh[06220]: user1234,/dev/pts/10: closing rootsh session
 
 
 
+If you create rootsh.cfg in sysconfdir, this sets the default values.
+logtofile = true/false - Default: false

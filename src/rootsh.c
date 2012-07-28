@@ -1619,7 +1619,7 @@ void readConfigFile(void) {
       if(!result) {
         fprintf(stderr, "Error parsing config file line '%s', skipping\n", line);
       } else if(0 == strncmp("logtofile", key, sizeof(key))) {
-        if(0 == strncmp("true", value, sizeof(value))) {
+        if(parseBool(value)) {
           logtofile = true;
         } else {
           logtofile = false;
