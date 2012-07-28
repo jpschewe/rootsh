@@ -189,24 +189,14 @@ volatile sig_atomic_t sigwinch_received;
 
 static char progName[MAXPATHLEN];
 static char sessionId[MAXPATHLEN + 11];
-#ifdef LOGTOFILE
 static int logFile;
 static ino_t logInode;
 static dev_t logDev;
-#endif
 static char logFileName[MAXPATHLEN - 9];
 static char *userLogFileName;
 static char *userLogFileDir;
 
-/**
- * True if logging to a file.
- * Swtiched off with --no-logfile.
- */
-#ifndef LOGTOFILE
 static bool logtofile = false;
-#else 
-static bool logtofile = true;
-#endif
 
 /**
  * True if logging to syslog.
@@ -1622,19 +1612,33 @@ void readConfigFile(void) {
   while(-1 != getline(&line, &lineSize, config)) {
     char key[256];
     char value[256];
-    bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
+
+    if(isConfigLine(line)) {
+      bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
     
-    if(!result) {
-      fprintf(stderr, "Error parsing config file line '%s', skipping\n", line);
-    } else {
-      /* FIXME debugging */
-      printf("Found key: '%s' value: '%s'\n", key, value);
+      if(!result) {
+        fprintf(stderr, "Error parsing config file line '%s', skipping\n", line);
+      } else if(0 == strncmp("logtofile", key, sizeof(key))) {
+        if(0 == strncmp("true", value, sizeof(value))) {
+          logtofile = true;
+        } else {
+          logtofile = false;
+        }
+      } else {
+        /* FIXME debugging */
+        printf("Found key: '%s' value: '%s'\n", key, value);
+      }
     }
-    
 
     free(line);
     line = NULL;
   }
   
+  if(NULL != line) {
+    free(line);
+    line = NULL;
+  }
+
+  fclose(config);
   
 }
