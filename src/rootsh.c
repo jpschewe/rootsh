@@ -73,6 +73,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #  include "getopt.h"
 #endif
 
+#include <stdbool.h>
+
+#include "write2syslog.h"
+#include "configParser.h"
+
 #if NEED_GETUSERSHELL_PROTO
 /* 
 //  solaris has no own prototypes for these three functions
@@ -85,6 +90,11 @@ void endusershell(void);
 /*
 //   our own functions 
 */
+/**
+ * Read the configuration file and setup options.
+ * @return if this was successful
+ */
+bool readConfigFile(void);
 void logSession(const int);
 void execShell(const char *, const char *);
 char *setupusername(void);
@@ -98,7 +108,7 @@ void dologging(char *, int);
 void endlogging(void);
 int recoverfile(int, char *);
 int forceopen(char *);
-char *defaultshell(void);
+char *getDefaultshell(void);
 char **saveenv(char *);
 void restoreenv(void);
 #ifndef HAVE_CLEARENV
@@ -106,9 +116,6 @@ int clearenv(void);
 #endif
 void version(void);
 void usage(void);
-#ifdef LOGTOSYSLOG
-extern void write2syslog(const void *, size_t);
-#endif
 #ifndef HAVE_FORKPTY
 pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
@@ -151,12 +158,6 @@ char **build_scp_args( char *str, size_t reserve );
 //			and before the logfile will be closed. Should they
 //			be different, then somebody manipulated the logfile.
 //			
-//  logtofile		A flag indicating that logging to a file has 
-//			been switched off with --no-logfile.
-//
-//  logtosyslog		A flag indicating that logging to syslog has
-//			been switched off with --no-logfile.
-//
 //  userName		The name of the user who called this executable.
 //
 //  runAsUser		The name of the user under whose identity the shell
@@ -192,24 +193,42 @@ volatile sig_atomic_t sigwinch_received;
 
 static char progName[MAXPATHLEN];
 static char sessionId[MAXPATHLEN + 11];
-#ifdef LOGTOFILE
 static int logFile;
 static ino_t logInode;
 static dev_t logDev;
-#endif
 static char logFileName[MAXPATHLEN - 9];
 static char *userLogFileName;
 static char *userLogFileDir;
-#ifndef LOGTOFILE
-static int logtofile = 0;
-#else 
-static int logtofile = 1;
-#endif
+
+static bool logtofile = false;
+static char logdir[MAXPATHLEN+1];
+
+/**
+ * True if logging to syslog.
+ * Switched off with --no-syslog.
+ */
 #ifndef LOGTOSYSLOG
-static int logtosyslog = 0;
+static bool logtosyslog = false;
 #else
-static int logtosyslog = 1;
+static bool logtosyslog = true;
 #endif
+
+#ifdef LOGUSERNAMETOSYSLOG
+static bool syslogLogUsername = true;
+#else
+static bool syslogLogUsername = false;
+#endif
+static char syslogfacility[MAXPATHLEN+1];
+static char syslogpriority[MAXPATHLEN+1];
+
+#ifdef LINECNT
+static bool syslogLogLineCount = true;
+#else
+static bool syslogLogLineCount = false;
+#endif
+
+static char defaultshell[MAXPATHLEN+1];
+
 static char *userName;
 static char *runAsUser;
 static int standalone;
@@ -252,6 +271,11 @@ int main(int argc, char **argv) {
       {0, 0, 0, 0}
   };
 
+  if(!readConfigFile()) {
+    fprintf(stderr, "Error setting up configuration options\n");
+    exit(EXIT_FAILURE);
+  }
+         
   /* 
   //  This should be rootsh, but it could have been renamed.
   */
@@ -297,10 +321,10 @@ int main(int argc, char **argv) {
         userLogFileDir = strdup(optarg);
         break;
       case 'x':
-        logtofile = 0;
+        logtofile = false;
         break;
       case 'y':
-        logtosyslog = 0;
+        logtosyslog = false;
         break;
       default:
         usage ();
@@ -664,26 +688,21 @@ int beginlogging(const char *shellCommands) {
   */
   int msglen;
   char msgbuf[BUFSIZ];
-#ifdef LOGTOFILE
   struct stat statBuf;
   time_t now;
   char defLogFileName[MAXPATHLEN - 7];
   int sec, min, hour, day, month, year;
-#endif
-#ifdef LOGTOSYSLOG
   static char sessionIdWithUid[sizeof(sessionId) + 10];
-#endif
 
-  if (logtofile == 0 && logtosyslog == 0) {
+  if (!logtofile && !logtosyslog) {
     fprintf(stderr, "you cannot switch off both file and syslog logging\n");
     return (0);
   }
 
-#ifdef LOGTOFILE
   if (logtofile) {
     /*
     //  Construct the logfile name. 
-    //  LOGDIR/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
+    //  logdir/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
     //  In standalone mode, a user may propose his own filename
     //  When the session is over, the logfile will be renamed 
     //  to <logfile>.closed.
@@ -717,11 +736,11 @@ int beginlogging(const char *shellCommands) {
             userLogFileDir, defLogFileName);
       } else {
         snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
-            LOGDIR, defLogFileName);
+            logdir, defLogFileName);
       }
     } else {
       snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
-          LOGDIR, defLogFileName);
+          logdir, defLogFileName);
     }
     /* 
     //  Open the logfile 
@@ -754,19 +773,18 @@ int beginlogging(const char *shellCommands) {
       return(0);
     }
   }
-#endif
-#ifdef LOGTOSYSLOG
+
   if(logtosyslog) {
     /* 
     //  Prepare usage of syslog with sessionid as prefix.
     */
-#ifdef LOGUSERNAMETOSYSLOG
-    snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
-        sessionId, userName);
-    openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
-#else
-    openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
-#endif
+    if(syslogLogUsername) {
+      snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
+               sessionId, userName);
+      openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
+    } else {
+      openlog(sessionId, LOG_NDELAY, SYSLOGFACILITY);
+    }
     /* 
     //  Note the log file name in syslog if there is one.
     */
@@ -782,7 +800,6 @@ int beginlogging(const char *shellCommands) {
           ttyname(0), isaLoginShell ? "login " : "", sessionId);
     }
   }
-#endif
 
   if(NULL != shellCommands) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
@@ -800,19 +817,16 @@ int beginlogging(const char *shellCommands) {
 */
 
 void dologging(char *msgbuf, int msglen) {
-#ifdef LOGTOFILE
   if (logtofile) {
     if(write(logFile, msgbuf, msglen) < 0) {
       perror("Error writing to logfile");
-      return;
     }
   }
-#endif
-#ifdef LOGTOSYSLOG
+
   if (logtosyslog) {
-    write2syslog(msgbuf, msglen);
+    write2syslog(msgbuf, msglen, syslogLogLineCount);
   }
-#endif
+
 }
 
 
@@ -845,15 +859,12 @@ void endlogging() {
   //			inode and device.
   //  
   */
-#ifdef LOGTOFILE
   time_t now;
   int msglen;
   char msgbuf[BUFSIZ];
   struct stat statBuf;
   char closedLogFileName[MAXPATHLEN];
-#endif
 
-#ifdef LOGTOFILE
   if (logtofile) {
     now = time(NULL);
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
@@ -938,15 +949,15 @@ void endlogging() {
       rename(logFileName, closedLogFileName);
     } 
   }
-#endif
-#ifdef LOGTOSYSLOG
+
+
   if (logtosyslog) {
-    write2syslog("\r\n", 2);
+    write2syslog("\r\n", 2, syslogLogLineCount);
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
         userName, ttyname(0), progName, sessionId);
     closelog();
   }
-#endif
+
 }
 
 
@@ -1131,7 +1142,7 @@ char *setupshell() {
     if( (*progName == '-' && strcmp(basename(shell), progName + 1) == 0 )
          || strcmp(basename(shell), progName) == 0
          ) {
-      char *dshell = defaultshell();
+      char *dshell = getDefaultshell();
       shell = calloc(sizeof(char), strlen(dshell) + 1);
       strcpy(shell, dshell);
       shellenv = calloc(sizeof(char), strlen(shell) + 7);
@@ -1183,12 +1194,11 @@ int setupusermode(void) {
 //  to find an alternative shell which will handle the users commands.
 */
 
-char *defaultshell(void) {
+char *getDefaultshell(void) {
   /*
   //  defaultshell	A static memory area containing the path of the 
   //			default shell to use.
   */
-  char *defaultshell = DEFAULTSHELL;
   if (strlen(defaultshell) > 0) {
     return defaultshell;
   } else {
@@ -1563,27 +1573,31 @@ char **build_scp_args( char *str, size_t reserve ) {
 */
 
 void version() {
+  char const * const defaultShell = getDefaultshell();
+  
   printf("%s version %s\n", progName,VERSION);
-#ifdef LOGTOFILE
-  printf("logfiles go to directory %s\n", LOGDIR);
-#endif
-#ifdef LOGTOSYSLOG
-  printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
-#else
-  printf("no syslog logging\n");
-#endif
-#ifdef LINECNT
-  printf("line numbering is on\n");
-#else
-  printf("line numbering is off\n");
-#endif
+  printf("Logging to file? %d\n", logtofile);
+  printf("logfiles go to directory %s\n", logdir);
+  printf("Logging to syslog? %d\n", logtosyslog);
+  printf("syslog messages go to facility.priority %s.%s\n", syslogfacility, syslogpriority);
+  if(syslogLogLineCount) {
+    printf("syslog line numbering is on\n");
+  } else {
+    printf("syslog line numbering is off\n");
+  }
+  if(syslogLogUsername) {
+    printf("syslog logging of username is on\n");
+  } else {
+    printf("syslog logging of username is off\n");
+  }
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
 #endif
-#ifdef DEFAULTSHELL
-  printf("%s can be used as login shell. %s will interpret your commands\n",
-      progName, DEFAULTSHELL);
-#endif
+  if(NULL != defaultShell) {
+    printf("%s can be used as login shell. %s will interpret your commands\n",
+           progName, defaultShell);
+  }
+
   exit(0);
 }
 
@@ -1592,7 +1606,7 @@ void version() {
 //  Print available command line switches.
 */
 
-void usage() {
+void usage(void) {
   printf("Usage: %s [OPTION [ARG]] ...\n"
     " -?, --help            show this help statement\n"
     " -i, --login           start a (initial) login shell\n"
@@ -1603,4 +1617,122 @@ void usage() {
     " --no-syslog           switch off logging to syslog (standalone only)\n"
     " -V, --version         show version statement\n", progName);
   exit(0);
+}
+
+bool readConfigFile(void) {
+  FILE *config = NULL;
+  char *line = NULL;
+  size_t lineSize = 0;
+  
+  config = fopen(CONFIGFILE, "r");
+  if(NULL == config) {
+    return true;
+  }
+
+  
+  /* make sure logdir is empty */
+  logdir[0] = '\0';
+
+  /* copy compiled value into logdir */
+  if(strlen(LOGDIR) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for logdir: '%s' is longer than max path len: %d\n", LOGDIR, MAXPATHLEN);
+    return false;
+  }
+  strcpy(logdir, LOGDIR);
+
+  
+  /* setup syslog defaults */
+  if(strlen(SYSLOGFACILITYNAME) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for syslog facility: '%s' is longer than max path len: %d\n", SYSLOGFACILITYNAME, MAXPATHLEN);
+    return false;
+  }
+  strcpy(syslogfacility, SYSLOGFACILITYNAME);
+
+  if(strlen(SYSLOGPRIORITYNAME) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for syslog priority: '%s' is longer than max path len: %d\n", SYSLOGPRIORITYNAME, MAXPATHLEN);
+    return false;
+  }
+  strcpy(syslogpriority, SYSLOGPRIORITYNAME);  
+
+  /* setup default shell */
+  if(strlen(DEFAULTSHELL) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for default shell: '%s' is longer than max path len: %d\n", DEFAULTSHELL, MAXPATHLEN);
+    return false;
+  }
+  strcpy(defaultshell, DEFAULTSHELL);
+  
+  
+  while(-1 != getline(&line, &lineSize, config)) {
+    char key[MAXPATHLEN+1];
+    char value[MAXPATHLEN+1];
+
+    if(isConfigLine(line)) {
+      bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
+    
+      if(!result) {
+        fprintf(stderr, "Error parsing config file line '%s', skipping\n", line);
+      } else if(0 == strncmp("file", key, sizeof(key))) {
+        if(parseBool(value)) {
+          logtofile = true;
+        } else {
+          logtofile = false;
+        }
+      } else if(0 == strncmp("file.dir", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for logdir: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(logdir, value);
+      } else if(0 == strncmp("syslog", key, sizeof(key))) {
+        if(parseBool(value)) {
+          logtosyslog = true;
+        } else {
+          logtosyslog = false;
+        }
+      } else if(0 == strncmp("syslog.facility", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for syslog.facility: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(syslogfacility, value);
+      } else if(0 == strncmp("syslog.priority", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for syslog.priority: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(syslogpriority, value);
+      } else if(0 == strncmp("syslog.linenumbering", key, sizeof(key))) {
+        if(parseBool(value)) {
+          syslogLogLineCount = true;
+        } else {
+          syslogLogLineCount = false;
+        }
+      } else if(0 == strncmp("syslog.username", key, sizeof(key))) {
+        if(parseBool(value)) {
+          syslogLogUsername = true;
+        } else {
+          syslogLogUsername = false;
+        }
+      } else if(0 == strncmp("defaultshell", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for defaultshell: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(defaultshell, value);
+      }
+      /* just ignore extra config values */
+    }
+
+    free(line);
+    line = NULL;
+  }
+  
+  if(NULL != line) {
+    free(line);
+    line = NULL;
+  }
+
+  fclose(config);
+
+  return true;
 }

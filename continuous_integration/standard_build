@@ -1,0 +1,81 @@
+#!/bin/sh
+
+debug() { ! "${log_debug-false}" || log "DEBUG: $*" >&2; }
+log() { printf '%s\n' "$*"; }
+warn() { log "WARNING: $*" >&2; }
+error() { log "ERROR: $*" >&2; }
+fatal() { error "$*"; exit 1; }
+mydir=$(cd "$(dirname "$0")" && pwd -L) || fatal "Unable to determine script directory"
+
+PATH=${PATH}:/usr/local/bin:/opt/local/bin
+export PATH
+
+printf "BRANCH: ${GIT_BRANCH} GIT VERSION: "
+git describe --always
+
+# clean everything out
+log "Cleaning up working directory"
+cd "${WORKSPACE}"
+count=0
+success=0
+while [ ${count} -lt 10 -a ${success} -eq 0 ]; do
+    git clean -fdx
+    if [ $? -eq 0 ]; then
+        success=1
+    fi
+    count=$(( count + 1 ))
+done
+if [ ${success} -eq 0 ]; then
+    fatal "Error running git clean"
+fi
+
+# setup test config
+mkdir -p "${WORKSPACE}/install/etc"
+mkdir -p "${WORKSPACE}/install/log"
+log "file = true" >> "${WORKSPACE}/install/etc/rootsh.cfg"
+log "file.dir = ${WORKSPACE}/install/log" >> "${WORKSPACE}/install/etc/rootsh.cfg"
+log "syslog = false" >> "${WORKSPACE}/install/etc/rootsh.cfg"
+
+cd "${WORKSPACE}"
+./bootstrap.sh || fatal "Error executing bootstrap"
+
+./configure --prefix="${WORKSPACE}"/install || fatal "Error configuring"
+
+make || fatal "Error building"
+
+make check || fatal "Error running tests"
+
+# run valgrind on the tests
+cd "${WORKSPACE}"
+START=$(date +%s)
+valgrind --track-fds=yes --leak-check=full --track-origins=yes \
+    --error-limit=no \
+    --xml=yes --xml-file="${mydir}/test-valgrind.xml" \
+    --gen-suppressions=all --suppressions="${mydir}/valgrind_suppression_rules.txt" \
+    "test/testConfigParser" || fatal "Error running valgrind on tests"
+END=$(date +%s)
+DURATION=$(( ${END} - ${START} ))
+sleep 1
+cd "${mydir}"
+./xUnit/transform_valgrind.py \
+    -i test-valgrind.xml \
+    -o test-valgrind.TEST.xml -d ${DURATION} \
+    || fatal "Error transforming test valgrind output"
+
+
+#NOT WORKING # run valgrind on the executable
+#NOT WORKING cd "${WORKSPACE}"
+#NOT WORKING START=$(date +%s)
+#NOT WORKING valgrind --track-fds=yes --leak-check=full --track-origins=yes \
+#NOT WORKING     --error-limit=no \
+#NOT WORKING     --xml=yes --xml-file="${mydir}/rootsh-valgrind.xml" \
+#NOT WORKING     --gen-suppressions=all --suppressions="${mydir}/valgrind_suppression_rules.txt" \
+#NOT WORKING     "src/rootsh" -c ls || fatal "Error running valgrind on tests"
+#NOT WORKING END=$(date +%s)
+#NOT WORKING DURATION=$(( ${END} - ${START} ))
+#NOT WORKING sleep 1
+#NOT WORKING cd "${mydir}"
+#NOT WORKING ./xUnit/transform_valgrind.py \
+#NOT WORKING     -i rootsh-valgrind.xml \
+#NOT WORKING     -o rootsh-valgrind.TEST.xml -d ${DURATION} \
+#NOT WORKING     || fatal "Error transforming rootsh valgrind output"

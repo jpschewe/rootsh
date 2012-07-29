@@ -1,9 +1,5 @@
 rootsh Installation Instructions:
 
-coming soon: http://people.consol.de/~lausser/rootsh
-lausser@users.sourceforge.net
-
-
 Step 1. Decide if you want to have your logfiles in a non-standard place.
 
         Logfiles with names like <user>.<date><time>.<process id>
@@ -58,7 +54,10 @@ Step 5. Decide if you want to turn off writing the username into
 
 Step 6. Configure your installation
 
-	There are 6 options to configure rootsh.
+	There are some options to configure rootsh. If you create
+	rootsh.cfg in sysconfdir, this will override the defaults set at
+	compile time.
+
 
 	--disable-logfile
 
@@ -69,10 +68,18 @@ Step 6. Configure your installation
 	for some users (7th field in /etc/passwd), you must disable logfiles.
 	This is because rootsh will be run with user privileges.
 
+        This setting can be overriden at runtime by setting "file" to
+        true/false in rootsh.cfg.
+
+	
         --with-logdir=LOGDIR
         
         Using this option will change the default directory for your
-        logfiles. 
+        logfiles.
+
+        This setting can be overriden at runtime by setting "file.dir" in
+        rootsh.cfg. Do not quote the direcotry name.
+        
 
         --disable-syslog
 
@@ -80,21 +87,37 @@ Step 6. Configure your installation
         have logfiles, but they could be manipulated by rootsh users.
 	By default syslog is turned on.
 
+        This setting can be overriden at runtime by setting "syslog" to
+        true/false in rootsh.cfg.
+	
+	
         --enable-syslog=LEVEL.FACILITY
 
         Using this option will allow you to change the default
         priority "local5.notice":
 
+        This setting can be overriden at runtime by setting
+        "syslog.facility" and "syslog.priority" in rootsh.cfg.
+
+	
 	--disable-linenumbering
 
 	Using this option will turn off prepending the syslog lines 
 	with a line counter.
 
+        This setting can be overriden at runtime by setting "syslog.linenumbering" to
+        true/false in rootsh.cfg.
+
+	
 	--disable-syslog-username
 
 	Using this option will turn off prepending the syslog lines
 	with the username.
 
+        This setting can be overriden at runtime by setting
+        "syslog.username" to true/false in rootsh.cfg.
+
+	
 	--with-defaultshell
 
 	If rootsh is a user's login shell from the 7th field in /etc/passwd
@@ -104,6 +127,9 @@ Step 6. Configure your installation
 
 	By calling the binary with the "-V" or "--version" option
 	you can later see how these options were used.
+
+        This setting can be overriden at runtime by setting "defaultshell"
+        in rootsh.cfg.
 	
 
 Step 7. Build the binaries.
@@ -191,6 +217,4 @@ Mar 24 14:03:22 srv1 rootsh[06220]: exit
 Mar 24 14:03:22 srv1 rootsh[06220]: *** rootsh session ended by user
 Mar 24 14:03:22 srv1 rootsh[06220]: 
 Mar 24 14:03:22 srv1 rootsh[06220]: user1234,/dev/pts/10: closing rootsh session (rootsh[06220])
-
-
 
