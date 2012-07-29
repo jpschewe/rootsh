@@ -46,8 +46,7 @@ char * trimWhitespace(char const * const data) {
     return NULL;
   }
   
-  retval = malloc(len);
-
+  retval = malloc(len+1);
   if(NULL == retval) {
     return NULL;
   }
