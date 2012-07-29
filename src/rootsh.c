@@ -108,7 +108,7 @@ void dologging(char *, int);
 void endlogging(void);
 int recoverfile(int, char *);
 int forceopen(char *);
-char *defaultshell(void);
+char *getDefaultshell(void);
 char **saveenv(char *);
 void restoreenv(void);
 #ifndef HAVE_CLEARENV
@@ -226,6 +226,8 @@ static bool syslogLogLineCount = true;
 #else
 static bool syslogLogLineCount = false;
 #endif
+
+static char defaultshell[MAXPATHLEN+1];
 
 static char *userName;
 static char *runAsUser;
@@ -1140,7 +1142,7 @@ char *setupshell() {
     if( (*progName == '-' && strcmp(basename(shell), progName + 1) == 0 )
          || strcmp(basename(shell), progName) == 0
          ) {
-      char *dshell = defaultshell();
+      char *dshell = getDefaultshell();
       shell = calloc(sizeof(char), strlen(dshell) + 1);
       strcpy(shell, dshell);
       shellenv = calloc(sizeof(char), strlen(shell) + 7);
@@ -1192,12 +1194,11 @@ int setupusermode(void) {
 //  to find an alternative shell which will handle the users commands.
 */
 
-char *defaultshell(void) {
+char *getDefaultshell(void) {
   /*
   //  defaultshell	A static memory area containing the path of the 
   //			default shell to use.
   */
-  char *defaultshell = DEFAULTSHELL;
   if (strlen(defaultshell) > 0) {
     return defaultshell;
   } else {
@@ -1572,6 +1573,8 @@ char **build_scp_args( char *str, size_t reserve ) {
 */
 
 void version() {
+  char const * const defaultShell = getDefaultshell();
+  
   printf("%s version %s\n", progName,VERSION);
   printf("Logging to file? %d\n", logtofile);
   printf("logfiles go to directory %s\n", logdir);
@@ -1590,10 +1593,11 @@ void version() {
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
 #endif
-#ifdef DEFAULTSHELL
-  printf("%s can be used as login shell. %s will interpret your commands\n",
-      progName, DEFAULTSHELL);
-#endif
+  if(NULL != defaultShell) {
+    printf("%s can be used as login shell. %s will interpret your commands\n",
+           progName, defaultShell);
+  }
+
   exit(0);
 }
 
@@ -1650,6 +1654,13 @@ bool readConfigFile(void) {
   }
   strcpy(syslogpriority, SYSLOGPRIORITYNAME);  
 
+  /* setup default shell */
+  if(strlen(DEFAULTSHELL) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for default shell: '%s' is longer than max path len: %d\n", DEFAULTSHELL, MAXPATHLEN);
+    return false;
+  }
+  strcpy(defaultshell, DEFAULTSHELL);
+  
   
   while(-1 != getline(&line, &lineSize, config)) {
     char key[MAXPATHLEN+1];
@@ -1702,10 +1713,14 @@ bool readConfigFile(void) {
         } else {
           syslogLogUsername = false;
         }
-      } else {
-        /* FIXME debugging */
-        printf("Found key: '%s' value: '%s'\n", key, value);
+      } else if(0 == strncmp("defaultshell", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for defaultshell: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(defaultshell, value);
       }
+      /* just ignore extra config values */
     }
 
     free(line);

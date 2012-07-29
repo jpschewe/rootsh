@@ -127,6 +127,9 @@ Step 6. Configure your installation
 
 	By calling the binary with the "-V" or "--version" option
 	you can later see how these options were used.
+
+        This setting can be overriden at runtime by setting "defaultshell"
+        in rootsh.cfg.
 	
 
 Step 7. Build the binaries.
