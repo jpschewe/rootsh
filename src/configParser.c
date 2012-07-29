@@ -126,6 +126,9 @@ bool splitConfigLine(char const * const line,
   
   /* create the key */
   tempKey = malloc(actualKeyLength+1);
+  if(NULL == tempKey) {
+    return false;
+  }
   strncpy(tempKey, line, actualKeyLength);
   tempKey[actualKeyLength] = '\0';
 
@@ -138,6 +141,9 @@ bool splitConfigLine(char const * const line,
   
 
   tempValue = malloc(actualValueLength+1);
+  if(NULL == tempValue) {
+    return false;
+  }
   strncpy(tempValue, equals+1, actualValueLength);
   tempValue[actualValueLength] = '\0';
   
