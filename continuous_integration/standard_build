@@ -86,3 +86,6 @@ ${mydir}/copy-paste-detector || fatal "Error running copy paste detect"
 cd ${mydir}
 ./sloccount.sh || fatal "Error running sloccount"
 
+# cppcheck
+cd ${WORKSPACE}
+cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
