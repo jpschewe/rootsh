@@ -29,15 +29,38 @@
 bool testCommentLine(void);
 bool testConfigLine(void);
 bool testNotConfigLine(void);
-bool testTrimWhitespace(void);
+bool testTrimWhitespace0(void);
+bool testTrimWhitespace1(void);
 bool testAllWhitespace(void);
-bool testSplitLine(void);
+bool testSplitLine0(void);
+bool testSplitLine1(void);
 bool testParseBool(void);
 
 /* implementations */
-bool testTrimWhitespace(void) {
+bool testTrimWhitespace0(void) {
   char const *line = "   Something in between  \n";
   char const *expected = "Something in between";
+  char *actual = trimWhitespace(line);
+  bool retval;
+
+  if(NULL == actual) {
+    return false;
+  }
+
+  if(0 == strcmp(expected, actual)) {
+    retval = true;
+  } else {
+    printf("Bad trimmed value: '%s'\n", actual);
+    retval = false;
+  }
+  
+  free(actual);
+  return retval;
+}
+
+bool testTrimWhitespace1(void) {
+  char const *line = "var";
+  char const *expected = "var";
   char *actual = trimWhitespace(line);
   bool retval;
 
@@ -106,8 +129,33 @@ bool testNotConfigLine(void) {
   }
 }
 
-bool testSplitLine(void) {
+bool testSplitLine0(void) {
   char const *line = "var = 10\n";
+  char const *expectedKey = "var";
+  char const *expectedValue = "10";
+  char key[256];
+  char value[256];
+    
+  if(!splitConfigLine(line, sizeof(key), key, sizeof(value), value)) {
+    printf("splitConfigLine returned false\n");
+    return false;
+  }
+
+  if(0 != strcmp(expectedKey, key)) {
+    printf("Bad key. Expected: '%s' Actual: '%s'\n", expectedKey, key);
+    return false;
+  }
+
+  if(0 != strcmp(expectedValue, value)) {
+    printf("Bad value. Expected: '%s' Actual: '%s'\n", expectedValue, value);
+    return false;
+  }
+
+  return true;
+}
+
+bool testSplitLine1(void) {
+  char const *line = "var=10\n";
   char const *expectedKey = "var";
   char const *expectedValue = "10";
   char key[256];
@@ -194,14 +242,22 @@ int main(int argc, char **argv) {
     printf("\tPASSED\n");
   }
   
-  printf("testTrimWhitespace:\n");
-  if(!testTrimWhitespace()) {
+  printf("testTrimWhitespace0:\n");
+  if(!testTrimWhitespace0()) {
     printf("\tFAILED\n");
     retval = 1;
   } else {
     printf("\tPASSED\n");
   }
 
+  printf("testTrimWhitespace1:\n");
+  if(!testTrimWhitespace1()) {
+    printf("\tFAILED\n");
+    retval = 1;
+  } else {
+    printf("\tPASSED\n");
+  }
+  
   printf("testCommentLine:\n");
   if(!testCommentLine()) {
     printf("\tFAILED\n");
@@ -226,8 +282,16 @@ int main(int argc, char **argv) {
     printf("\tPASSED\n");
   }
 
-  printf("testSplitLine:\n");
-  if(!testSplitLine()) {
+  printf("testSplitLine0:\n");
+  if(!testSplitLine0()) {
+    printf("\tFAILED\n");
+    retval = 1;
+  } else {
+    printf("\tPASSED\n");
+  }
+
+  printf("testSplitLine1:\n");
+  if(!testSplitLine1()) {
     printf("\tFAILED\n");
     retval = 1;
   } else {

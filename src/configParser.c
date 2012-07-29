@@ -24,14 +24,14 @@
 #include <strings.h>
 #include <stdlib.h>
 
-
 static bool isWhitespace(char const data) {
   return data == ' '
     || data == '\n'
     || data == '\r'
     || data == '\t'
     || data == '\f'
-    || data == '\v';
+    || data == '\v'
+    || data == '\0';
 }
 
 
@@ -49,8 +49,7 @@ char * trimWhitespace(char const * const data) {
   retval[0] = '\0';
   
   begin = &(data[0]);
-  /* start at -2 as -1 will be \0 */
-  end = &(data[len-2]);
+  end = &(data[len-1]);
   
   while(isWhitespace(*begin) && begin != end) {
     ++begin;
@@ -124,7 +123,7 @@ bool splitConfigLine(char const * const line,
   tempKey = malloc(actualKeyLength+1);
   strncpy(tempKey, line, actualKeyLength);
   tempKey[actualKeyLength] = '\0';
-  
+
   trimmedKey = trimWhitespace(tempKey);
   
   strcpy(key, trimmedKey);
