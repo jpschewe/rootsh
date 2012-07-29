@@ -80,4 +80,9 @@ cd "${mydir}"
 #NOT WORKING     -o rootsh-valgrind.TEST.xml -d ${DURATION} \
 #NOT WORKING     || fatal "Error transforming rootsh valgrind output"
 
+
 ${mydir}/copy-paste-detector || fatal "Error running copy paste detect"
+
+cd ${mydir}
+./sloccount.sh || fatal "Error running sloccount"
+
