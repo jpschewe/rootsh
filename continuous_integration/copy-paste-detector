@@ -1,0 +1,27 @@
+#!/bin/sh
+
+debug() { ! "${log_debug-false}" || log "DEBUG: $*" >&2; }
+log() { printf '%s\n' "$*"; }
+warn() { log "WARNING: $*" >&2; }
+error() { log "ERROR: $*" >&2; }
+fatal() { error "$*"; exit 1; }
+
+mydir=$(cd "$(dirname "$0")" && pwd -L) || fatal "Unable to determine script directory"
+
+log "Running copy paste detector"
+cp="${mydir}/pmd/asm-3.2.jar:${mydir}/pmd/jaxen-1.1.1.jar:${mydir}/pmd/pmd-4.2.6.jar"
+case $OSTYPE in
+    cygwin*)
+        cp=$(cygpath --path --windows "$cp")
+        ;;
+esac
+java \
+    -Xmx1024M \
+    -classpath "${cp}" \
+    net.sourceforge.pmd.cpd.CPD \
+    --minimum-tokens 100 \
+    --format net.sourceforge.pmd.cpd.XMLRenderer \
+    --language cpp \
+    --files "${mydir}/../src" \
+    > "${mydir}/cpd.xml" \
+    || fatal "Error running copy paste detector"

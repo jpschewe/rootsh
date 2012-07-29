@@ -79,3 +79,5 @@ cd "${mydir}"
 #NOT WORKING     -i rootsh-valgrind.xml \
 #NOT WORKING     -o rootsh-valgrind.TEST.xml -d ${DURATION} \
 #NOT WORKING     || fatal "Error transforming rootsh valgrind output"
+
+${mydir}/copy-paste-detector || fatal "Error running copy paste detect"

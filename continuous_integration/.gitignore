@@ -1,2 +1,4 @@
 *.TEST.xml
 *-valgrind.xml
+cpd.xml
+
