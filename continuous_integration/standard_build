@@ -34,6 +34,7 @@ mkdir -p "${WORKSPACE}/install/etc"
 mkdir -p "${WORKSPACE}/install/log"
 log "file = true" >> "${WORKSPACE}/install/etc/rootsh.cfg"
 log "file.dir = ${WORKSPACE}/install/log" >> "${WORKSPACE}/install/etc/rootsh.cfg"
+log "syslog = false" >> "${WORKSPACE}/install/etc/rootsh.cfg"
 
 cd "${WORKSPACE}"
 ./bootstrap.sh || fatal "Error executing bootstrap"
