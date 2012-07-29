@@ -232,7 +232,11 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     /*
     //  add space for current output to remaining output 
     */
-    rptr = realloc(rptr, rptrLength + optrLength);     
+    rptr = realloc(rptr, rptrLength + optrLength);
+    if(NULL == rptr) {
+      fprintf(stderr, "Unable to allocate memory to log to syslog\n");
+      exit(1);
+    }
   }
   /*
   //  fill the newly created memory with the current output 
@@ -347,6 +351,10 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     //  cut off everything we don't need 
     */
     rptr = realloc(rptr, (size_t)rptrLength);     
+    if(NULL == rptr) {
+      fprintf(stderr, "Unable to allocate memory to log to syslog\n");
+      exit(1);
+    }
   } else {
     /* 
     //  we are done. a complete line was output with no extra characters left 

@@ -574,49 +574,33 @@ void execShell(const char *shell, const char *shellCommands) {
     dashShell = NULL;
   }
   if (runAsUser && useLoginShell && shellCommands) {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, (char *)NULL);
   } else if (runAsUser && useLoginShell && !shellCommands) {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, (char *)NULL);
   } else if (runAsUser && !useLoginShell && shellCommands) {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, (char *)NULL);
   } else if (runAsUser && !useLoginShell && !shellCommands) {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), runAsUser, (char *)NULL);
   } else if (!runAsUser && useLoginShell && shellCommands) {
     execl(shell, dashShell, "-c", shellCommands, (char *)NULL);
   } else if (!runAsUser && useLoginShell && !shellCommands) {
     execl(shell, dashShell, (char *)NULL);
   } else if (!runAsUser && !useLoginShell && shellCommands) {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, (char *)NULL);
   } else if (!runAsUser && !useLoginShell && !shellCommands) {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-i", (char *)NULL);
   } else {
-    if(NULL != dashShell) {
-      free(dashShell);
-    }
+    free(dashShell);
     perror(shell);
   }
 
-  if(NULL != dashShell) {
-    free(dashShell);
-  }
+  free(dashShell);
   
   perror(progName);
   exit(EXIT_FAILURE);
@@ -962,7 +946,7 @@ void endlogging() {
         }
       }
     }
-    if (strlen(msgbuf) > 0) {
+    if (*msgbuf != '\0') {
       /*
       //  There is an error message. Send publish it and then try to
       //  save the contents of the (manipulated) logfile into a new
@@ -1242,7 +1226,7 @@ char *getDefaultshell(void) {
   //  defaultshell	A static memory area containing the path of the 
   //			default shell to use.
   */
-  if (strlen(defaultshell) > 0) {
+  if (*defaultshell != '\0') {
     return defaultshell;
   } else {
     /*
