@@ -50,9 +50,8 @@ char * trimWhitespace(char const * const data) {
   if(NULL == retval) {
     return NULL;
   }
-
-  memset(retval, len, 0);
-  
+  memset(retval, 0, len+1);
+                  
   begin = &(data[0]);
   end = &(data[len-1]);
   
