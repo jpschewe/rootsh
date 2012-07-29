@@ -74,6 +74,8 @@ valgrind --track-fds=yes --leak-check=full --track-origins=yes \
 END=$(date +%s)
 DURATION=$(( ${END} - ${START} ))
 sleep 1
+log "rootsh finished in valgrind - end of xml file"
+tail -20 ${mydir}/rootsh-valgrind.xml
 cd "${mydir}"
 ./xUnit/transform_valgrind.py \
     -i rootsh-valgrind.xml \
