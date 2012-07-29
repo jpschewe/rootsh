@@ -1637,13 +1637,13 @@ bool readConfigFile(void) {
     
       if(!result) {
         fprintf(stderr, "Error parsing config file line '%s', skipping\n", line);
-      } else if(0 == strncmp("logtofile", key, sizeof(key))) {
+      } else if(0 == strncmp("file", key, sizeof(key))) {
         if(parseBool(value)) {
           logtofile = true;
         } else {
           logtofile = false;
         }
-      } else if(0 == strncmp("logdir", key, sizeof(key))) {
+      } else if(0 == strncmp("file.dir", key, sizeof(key))) {
         if(strlen(value) > MAXPATHLEN) {
           fprintf(stderr, "Configured value for logdir: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
           return false;
