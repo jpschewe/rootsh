@@ -87,5 +87,5 @@ cd ${mydir}
 ./sloccount.sh || fatal "Error running sloccount"
 
 # cppcheck
-cd ${WORKSAPCE}
+cd ${WORKSPACE}
 cppcheck --enable=all --xml src test 2> ${mydir}/cppcheck.xml
