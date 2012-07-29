@@ -88,4 +88,4 @@ cd ${mydir}
 
 # cppcheck
 cd ${WORKSPACE}
-cppcheck --enable=all --xml src test 2> ${mydir}/cppcheck.xml
+cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
