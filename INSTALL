@@ -54,7 +54,10 @@ Step 5. Decide if you want to turn off writing the username into
 
 Step 6. Configure your installation
 
-	There are some options to configure rootsh.
+	There are some options to configure rootsh. If you create
+	rootsh.cfg in sysconfdir, this will override the defaults set at
+	compile time.
+
 
 	--disable-logfile
 
@@ -188,7 +191,3 @@ Mar 24 14:03:22 srv1 rootsh[06220]: *** rootsh session ended by user
 Mar 24 14:03:22 srv1 rootsh[06220]: 
 Mar 24 14:03:22 srv1 rootsh[06220]: user1234,/dev/pts/10: closing rootsh session (rootsh[06220])
 
-
-
-If you create rootsh.cfg in sysconfdir, this sets the default values.
-logtofile = true/false - Default: false
