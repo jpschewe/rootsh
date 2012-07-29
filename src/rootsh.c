@@ -567,42 +567,33 @@ void execShell(const char *shell, const char *shellCommands) {
   //  otherwise call it as an interactive shell.
   */
   if (useLoginShell) {
+    char *slash;
     dashShell = strdup(shell);
-    dashShell = strrchr(dashShell, '/');
-    dashShell[0] = '-';
+    slash = strchr(dashShell, '/');
+    *slash = '-';
   } else {
     dashShell = NULL;
   }
   if (runAsUser && useLoginShell && shellCommands) {
-    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, "-c", shellCommands, (char *)NULL);
   } else if (runAsUser && useLoginShell && !shellCommands) {
-    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-", runAsUser, (char *)NULL);
   } else if (runAsUser && !useLoginShell && shellCommands) {
-    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), runAsUser, "-c", shellCommands, (char *)NULL);
   } else if (runAsUser && !useLoginShell && !shellCommands) {
-    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), runAsUser, (char *)NULL);
   } else if (!runAsUser && useLoginShell && shellCommands) {
     execl(shell, dashShell, "-c", shellCommands, (char *)NULL);
-    free(dashShell);
   } else if (!runAsUser && useLoginShell && !shellCommands) {
     execl(shell, dashShell, (char *)NULL);
-    free(dashShell);
   } else if (!runAsUser && !useLoginShell && shellCommands) {
-    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, (char *)NULL);
   } else if (!runAsUser && !useLoginShell && !shellCommands) {
-    free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-i", (char *)NULL);
   } else {
-    free(dashShell);
     perror(shell);
   }
 
-  free(dashShell);
   
   perror(progName);
   exit(EXIT_FAILURE);
