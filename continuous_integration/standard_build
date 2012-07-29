@@ -1,4 +1,4 @@
-#!/bin/sh -x
+#!/bin/sh
 
 debug() { ! "${log_debug-false}" || log "DEBUG: $*" >&2; }
 log() { printf '%s\n' "$*"; }
@@ -55,7 +55,6 @@ valgrind --track-fds=yes --leak-check=full --track-origins=yes \
     "test/testConfigParser" || fatal "Error running valgrind on tests"
 END=$(date +%s)
 DURATION=$(( ${END} - ${START} ))
-sleep 1
 cd "${mydir}"
 ./xUnit/transform_valgrind.py \
     -i test-valgrind.xml \
@@ -73,9 +72,6 @@ valgrind --track-fds=yes --leak-check=full --track-origins=yes \
     "src/rootsh" -c ls || fatal "Error running valgrind on tests"
 END=$(date +%s)
 DURATION=$(( ${END} - ${START} ))
-sleep 1
-log "rootsh finished in valgrind - end of xml file"
-tail -20 ${mydir}/rootsh-valgrind.xml
 cd "${mydir}"
 ./xUnit/transform_valgrind.py \
     -i rootsh-valgrind.xml \
