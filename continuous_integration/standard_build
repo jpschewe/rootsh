@@ -19,7 +19,7 @@ cd "${WORKSPACE}"
 count=0
 success=0
 while [ ${count} -lt 10 -a ${success} -eq 0 ]; do
-    ${GIT} clean -fdx
+    git clean -fdx
     if [ $? -eq 0 ]; then
         success=1
     fi
