@@ -13,23 +13,22 @@ export PATH
 printf "BRANCH: ${GIT_BRANCH} GIT VERSION: "
 git describe --always
 
-
 # clean everything out
-# DEBUG  log "Cleaning up working directory"
-# DEBUG  cd "${WORKSPACE}"
-# DEBUG  count=0
-# DEBUG  success=0
-# DEBUG  while [ ${count} -lt 10 -a ${success} -eq 0 ]; do
-# DEBUG      ${GIT} clean -fdx
-# DEBUG      if [ $? -eq 0 ]; then
-# DEBUG          success=1
-# DEBUG      fi
-# DEBUG      count=$(( count + 1 ))
-# DEBUG  done
-# DEBUG  if [ ${success} -eq 0 ]; then
-# DEBUG      fatal "Error running git clean"
-# DEBUG  fi
-# DEBUG  
+log "Cleaning up working directory"
+cd "${WORKSPACE}"
+count=0
+success=0
+while [ ${count} -lt 10 -a ${success} -eq 0 ]; do
+    ${GIT} clean -fdx
+    if [ $? -eq 0 ]; then
+        success=1
+    fi
+    count=$(( count + 1 ))
+done
+if [ ${success} -eq 0 ]; then
+    fatal "Error running git clean"
+fi
+
 # setup test config
 mkdir -p "${WORKSPACE}/install/etc"
 mkdir -p "${WORKSPACE}/install/log"
@@ -37,6 +36,8 @@ log "file = true" >> "${WORKSPACE}/install/etc/rootsh.cfg"
 log "file.dir = ${WORKSPACE}/install/log" >> "${WORKSPACE}/install/etc/rootsh.cfg"
 
 cd "${WORKSPACE}"
+./bootstrap.sh || fatal "Error executing bootstrap"
+
 ./configure --prefix="${WORKSPACE}"/install || fatal "Error configuring"
 
 make || fatal "Error building"
