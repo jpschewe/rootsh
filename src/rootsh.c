@@ -255,6 +255,7 @@ int main(int argc, char **argv) {
   //
   //  long_options	Used by getopt_long.
   */
+  int childPid;
   char *shell, *shellCommands = NULL;
   static char sessionIdEnv[sizeof(sessionId) + 17];
   int c, option_index = 0;
@@ -358,43 +359,29 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  if(isatty(0)) {
-    int childPid;
+  /* 
+  //  Save original terminal parameters.
+  */
+  tcgetattr(STDIN_FILENO, &termParams);
+  /*
+  //  Save original window size.
+  */
+  ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
   
-    /* 
-    //  Save original terminal parameters.
-    */
-    tcgetattr(STDIN_FILENO, &termParams);
-    /*
-    //  Save original window size.
-    */
-    ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
-  
-    /* 
-    //  fork a child process, create a pty pair, 
-    //  make the slave the controlling terminal,
-    //  create a new session, become session leader 
-    //  and attach filedescriptors 0-2 to the slave pty.
-    */
-    if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
-      perror("fork");
-      exit(EXIT_FAILURE);
-    }
-    if (childPid == 0) {
-      execShell(shell, shellCommands);
-    } else {
-      logSession(childPid);
-    }
-  } else {
-    int msglen;
-    char msgbuf[BUFSIZ];
-
-    /* note that it's not a tty and exec the shell */
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) -1),
-                      "Not a tty, just execing command\n");
-    dologging(msgbuf, msglen);
-    endlogging();
+  /* 
+  //  fork a child process, create a pty pair, 
+  //  make the slave the controlling terminal,
+  //  create a new session, become session leader 
+  //  and attach filedescriptors 0-2 to the slave pty.
+  */
+  if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
+    perror("fork");
+    exit(EXIT_FAILURE);
+  }
+  if (childPid == 0) {
     execShell(shell, shellCommands);
+  } else {
+    logSession(childPid);
   }
   exit(EXIT_SUCCESS);
 }
@@ -457,12 +444,14 @@ void logSession(const int childPid) {
 #else
   newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IXON);
 #endif
-  /* 
-  //  Set the new tty modes.
-  */
-  if (tcsetattr(0, TCSANOW, &newTty) < 0) {
-    perror("tcsetattr: stdin");
-    exit(EXIT_FAILURE);
+  if(isatty(0)) {
+    /* 
+    //  Set the new tty modes.
+    */
+    if (tcsetattr(0, TCSANOW, &newTty) < 0) {
+      perror("tcsetattr: stdin");
+      exit(EXIT_FAILURE);
+    }
   }
   
   /* 
