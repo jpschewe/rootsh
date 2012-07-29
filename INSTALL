@@ -69,7 +69,7 @@ Step 6. Configure your installation
 	This is because rootsh will be run with user privileges.
 
         This setting can be overriden at runtime by setting "file" to
-        "true" in rootsh.cfg.
+        true/false in rootsh.cfg.
 
 	
         --with-logdir=LOGDIR
@@ -87,21 +87,37 @@ Step 6. Configure your installation
         have logfiles, but they could be manipulated by rootsh users.
 	By default syslog is turned on.
 
+        This setting can be overriden at runtime by setting "syslog" to
+        true/false in rootsh.cfg.
+	
+	
         --enable-syslog=LEVEL.FACILITY
 
         Using this option will allow you to change the default
         priority "local5.notice":
 
+        This setting can be overriden at runtime by setting
+        "syslog.facility" and "syslog.priority" in rootsh.cfg.
+
+	
 	--disable-linenumbering
 
 	Using this option will turn off prepending the syslog lines 
 	with a line counter.
 
+        This setting can be overriden at runtime by setting "syslog.linenumbering" to
+        true/false in rootsh.cfg.
+
+	
 	--disable-syslog-username
 
 	Using this option will turn off prepending the syslog lines
 	with the username.
 
+        This setting can be overriden at runtime by setting
+        "syslog.username" to true/false in rootsh.cfg.
+
+	
 	--with-defaultshell
 
 	If rootsh is a user's login shell from the 7th field in /etc/passwd

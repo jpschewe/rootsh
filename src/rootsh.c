@@ -218,6 +218,8 @@ static bool syslogLogUsername = true;
 #else
 static bool syslogLogUsername = false;
 #endif
+static char syslogfacility[MAXPATHLEN+1];
+static char syslogpriority[MAXPATHLEN+1];
 
 #ifdef LINECNT
 static bool syslogLogLineCount = true;
@@ -1571,12 +1573,19 @@ char **build_scp_args( char *str, size_t reserve ) {
 
 void version() {
   printf("%s version %s\n", progName,VERSION);
+  printf("Logging to file? %d\n", logtofile);
   printf("logfiles go to directory %s\n", logdir);
-  printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
+  printf("Logging to syslog? %d\n", logtosyslog);
+  printf("syslog messages go to facility.priority %s.%s\n", syslogfacility, syslogpriority);
   if(syslogLogLineCount) {
-    printf("line numbering is on\n");
+    printf("syslog line numbering is on\n");
   } else {
-    printf("line numbering is off\n");
+    printf("syslog line numbering is off\n");
+  }
+  if(syslogLogUsername) {
+    printf("syslog logging of username is on\n");
+  } else {
+    printf("syslog logging of username is off\n");
   }
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
@@ -1613,7 +1622,7 @@ bool readConfigFile(void) {
   
   config = fopen(CONFIGFILE, "r");
   if(NULL == config) {
-    return false;
+    return true;
   }
 
   
@@ -1626,6 +1635,20 @@ bool readConfigFile(void) {
     return false;
   }
   strcpy(logdir, LOGDIR);
+
+  
+  /* setup syslog defaults */
+  if(strlen(SYSLOGFACILITYNAME) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for syslog facility: '%s' is longer than max path len: %d\n", SYSLOGFACILITYNAME, MAXPATHLEN);
+    return false;
+  }
+  strcpy(syslogfacility, SYSLOGFACILITYNAME);
+
+  if(strlen(SYSLOGPRIORITYNAME) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for syslog priority: '%s' is longer than max path len: %d\n", SYSLOGPRIORITYNAME, MAXPATHLEN);
+    return false;
+  }
+  strcpy(syslogpriority, SYSLOGPRIORITYNAME);  
 
   
   while(-1 != getline(&line, &lineSize, config)) {
@@ -1649,6 +1672,36 @@ bool readConfigFile(void) {
           return false;
         }
         strcpy(logdir, value);
+      } else if(0 == strncmp("syslog", key, sizeof(key))) {
+        if(parseBool(value)) {
+          logtosyslog = true;
+        } else {
+          logtosyslog = false;
+        }
+      } else if(0 == strncmp("syslog.facility", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for syslog.facility: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(syslogfacility, value);
+      } else if(0 == strncmp("syslog.priority", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for syslog.priority: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(syslogpriority, value);
+      } else if(0 == strncmp("syslog.linenumbering", key, sizeof(key))) {
+        if(parseBool(value)) {
+          syslogLogLineCount = true;
+        } else {
+          syslogLogLineCount = false;
+        }
+      } else if(0 == strncmp("syslog.username", key, sizeof(key))) {
+        if(parseBool(value)) {
+          syslogLogUsername = true;
+        } else {
+          syslogLogUsername = false;
+        }
       } else {
         /* FIXME debugging */
         printf("Found key: '%s' value: '%s'\n", key, value);
@@ -1666,9 +1719,5 @@ bool readConfigFile(void) {
 
   fclose(config);
 
-  /* FIXME DEBUG */
-  printf("Configured logdir '%s'\n", logdir);
-  printf("Configured logtofile %d\n", logtofile);
-  
   return true;
 }
