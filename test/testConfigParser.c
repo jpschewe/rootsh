@@ -82,9 +82,10 @@ bool testTrimWhitespace1(void) {
 bool testAllWhitespace(void) {
   char const *line = "   \t \v \f \r  \n";
   char const *expected = "";
-  char *actual = trimWhitespace(line);
+  char *actual = NULL;
   bool retval;
 
+  actual = trimWhitespace(line);
   if(NULL == actual) {
     return false;
   }

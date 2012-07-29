@@ -38,15 +38,21 @@ static bool isWhitespace(char const data) {
 char * trimWhitespace(char const * const data) {
   size_t const len = strlen(data);
   size_t newLen = 0;
-  char const *begin;
-  char const *end;
-  char *retval = malloc(len);
+  char const *begin = NULL;
+  char const *end = NULL;
+  char *retval = NULL;
+  
+  if(len == 0) {
+    return NULL;
+  }
+  
+  retval = malloc(len);
 
   if(NULL == retval) {
     return NULL;
   }
 
-  retval[0] = '\0';
+  memset(retval, len, 0);
   
   begin = &(data[0]);
   end = &(data[len-1]);
