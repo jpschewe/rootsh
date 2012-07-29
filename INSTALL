@@ -68,10 +68,18 @@ Step 6. Configure your installation
 	for some users (7th field in /etc/passwd), you must disable logfiles.
 	This is because rootsh will be run with user privileges.
 
+        This setting can be overriden at runtime by setting "logtofile" to
+        "true" in rootsh.cfg.
+
+	
         --with-logdir=LOGDIR
         
         Using this option will change the default directory for your
-        logfiles. 
+        logfiles.
+
+        This setting can be overriden at runtime by setting "logdir" in
+        rootsh.cfg. Do not quote the direcotry name.
+        
 
         --disable-syslog
 

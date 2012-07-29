@@ -90,7 +90,11 @@ void endusershell(void);
 /*
 //   our own functions 
 */
-void readConfigFile(void);
+/**
+ * Read the configuration file and setup options.
+ * @return if this was successful
+ */
+bool readConfigFile(void);
 void logSession(const int);
 void execShell(const char *, const char *);
 char *setupusername(void);
@@ -197,6 +201,7 @@ static char *userLogFileName;
 static char *userLogFileDir;
 
 static bool logtofile = false;
+static char logdir[MAXPATHLEN+1];
 
 /**
  * True if logging to syslog.
@@ -262,8 +267,11 @@ int main(int argc, char **argv) {
       {0, 0, 0, 0}
   };
 
-  readConfigFile();
-  
+  if(!readConfigFile()) {
+    fprintf(stderr, "Error setting up configuration options\n");
+    exit(EXIT_FAILURE);
+  }
+         
   /* 
   //  This should be rootsh, but it could have been renamed.
   */
@@ -690,7 +698,7 @@ int beginlogging(const char *shellCommands) {
   if (logtofile) {
     /*
     //  Construct the logfile name. 
-    //  LOGDIR/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
+    //  logdir/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
     //  In standalone mode, a user may propose his own filename
     //  When the session is over, the logfile will be renamed 
     //  to <logfile>.closed.
@@ -724,11 +732,11 @@ int beginlogging(const char *shellCommands) {
             userLogFileDir, defLogFileName);
       } else {
         snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
-            LOGDIR, defLogFileName);
+            logdir, defLogFileName);
       }
     } else {
       snprintf(logFileName, (sizeof(logFileName) - 1), "%s/%s",
-          LOGDIR, defLogFileName);
+          logdir, defLogFileName);
     }
     /* 
     //  Open the logfile 
@@ -1563,7 +1571,7 @@ char **build_scp_args( char *str, size_t reserve ) {
 
 void version() {
   printf("%s version %s\n", progName,VERSION);
-  printf("logfiles go to directory %s\n", LOGDIR);
+  printf("logfiles go to directory %s\n", logdir);
   printf("syslog messages go to priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
   if(syslogLogLineCount) {
     printf("line numbering is on\n");
@@ -1598,20 +1606,31 @@ void usage(void) {
   exit(0);
 }
 
-void readConfigFile(void) {
+bool readConfigFile(void) {
   FILE *config = NULL;
   char *line = NULL;
   size_t lineSize = 0;
   
   config = fopen(CONFIGFILE, "r");
   if(NULL == config) {
-    return;
+    return false;
   }
 
+  
+  /* make sure logdir is empty */
+  logdir[0] = '\0';
 
+  /* copy compiled value into logdir */
+  if(strlen(LOGDIR) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for logdir: '%s' is longer than max path len: %d\n", LOGDIR, MAXPATHLEN);
+    return false;
+  }
+  strcpy(logdir, LOGDIR);
+
+  
   while(-1 != getline(&line, &lineSize, config)) {
-    char key[256];
-    char value[256];
+    char key[MAXPATHLEN+1];
+    char value[MAXPATHLEN+1];
 
     if(isConfigLine(line)) {
       bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
@@ -1624,6 +1643,12 @@ void readConfigFile(void) {
         } else {
           logtofile = false;
         }
+      } else if(0 == strncmp("logdir", key, sizeof(key))) {
+        if(strlen(value) > MAXPATHLEN) {
+          fprintf(stderr, "Configured value for logdir: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
+          return false;
+        }
+        strcpy(logdir, value);
       } else {
         /* FIXME debugging */
         printf("Found key: '%s' value: '%s'\n", key, value);
@@ -1640,5 +1665,10 @@ void readConfigFile(void) {
   }
 
   fclose(config);
+
+  /* FIXME DEBUG */
+  printf("Configured logdir '%s'\n", logdir);
+  printf("Configured logtofile %d\n", logtofile);
   
+  return true;
 }
