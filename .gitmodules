@@ -1,0 +1,3 @@
+[submodule "continuous_integration/lcov-to-cobertura-xml"]
+	path = continuous_integration/lcov-to-cobertura-xml
+	url = https://github.com/eriwen/lcov-to-cobertura-xml.git
