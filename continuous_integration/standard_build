@@ -54,6 +54,7 @@ valgrind --track-fds=yes --leak-check=no --track-origins=yes \
     "test/testConfigParser" || fatal "Error running valgrind on tests"
 END=$(date +%s)
 DURATION=$(( ${END} - ${START} ))
+sleep 1
 cd "${mydir}"
 ./xUnit/transform_valgrind.py \
     -i test-valgrind.xml \
@@ -71,6 +72,7 @@ valgrind --track-fds=yes --leak-check=no --track-origins=yes \
     "src/rootsh" -c ls || fatal "Error running valgrind on tests"
 END=$(date +%s)
 DURATION=$(( ${END} - ${START} ))
+sleep 1
 cd "${mydir}"
 ./xUnit/transform_valgrind.py \
     -i rootsh-valgrind.xml \
