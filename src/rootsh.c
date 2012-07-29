@@ -587,8 +587,10 @@ void execShell(const char *shell, const char *shellCommands) {
     execl(shell, (strrchr(shell, '/') + 1), runAsUser, (char *)NULL);
   } else if (!runAsUser && useLoginShell && shellCommands) {
     execl(shell, dashShell, "-c", shellCommands, (char *)NULL);
+    free(dashShell);
   } else if (!runAsUser && useLoginShell && !shellCommands) {
     execl(shell, dashShell, (char *)NULL);
+    free(dashShell);
   } else if (!runAsUser && !useLoginShell && shellCommands) {
     free(dashShell);
     execl(shell, (strrchr(shell, '/') + 1), "-i", "-c", shellCommands, (char *)NULL);
@@ -612,6 +614,7 @@ void execShell(const char *shell, const char *shellCommands) {
  * @return the new value of shellCommands
  */
 char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
+  char *realloc_retval;
   while (optind < argc) {
     if (! shellCommands) {
       shellCommands = calloc(sizeof(char), 1);
@@ -620,11 +623,14 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
         exit(1);
       }
     }
-    shellCommands = realloc(shellCommands, 
+    realloc_retval = realloc(shellCommands, 
                             strlen(shellCommands) + strlen(argv[optind]) + 2);
-    if(NULL == shellCommands) {
+    if(NULL == realloc_retval) {
+      free(shellCommands);
       fprintf(stderr, "Cannot allocate memory for shellCommands\n");
       exit(1);
+    } else {
+      shellCommands = realloc_retval;
     }
     strcat(shellCommands, argv[optind]);
     strcat(shellCommands, " ");
@@ -1256,6 +1262,7 @@ char **saveenv(char *name) {
   */
   static char **senv = NULL;
   static char **senvp;
+  char **realloc_retval;
   if (name == NULL) {
     return senv;
   } else {
@@ -1273,7 +1280,14 @@ char **saveenv(char *name) {
         /*
         //  Allocate memory for another pointer
         */
-        senv = realloc(senv, (senvp - senv + 2) * sizeof(char *));
+        realloc_retval = realloc(senv, (senvp - senv + 2) * sizeof(char *));
+        if(NULL == realloc_retval) {
+          free(senv);
+          fprintf(stderr, "Unable to allocate memory for saving environemnt\n");
+          exit(1);
+        } else {
+          senv = realloc_retval;
+        }
       }
       senvp = senv;
       /*

@@ -182,7 +182,8 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
   /* 
   //  buffer where remaining input will be kept 
   */
-  static char *rptr;              
+  static char *rptr;
+  char *realloc_retval;
   /* 
   //  pointer to the string which will be output 
   */
@@ -232,10 +233,13 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     /*
     //  add space for current output to remaining output 
     */
-    rptr = realloc(rptr, rptrLength + optrLength);
-    if(NULL == rptr) {
+    realloc_retval = realloc(rptr, rptrLength + optrLength);
+    if(NULL == realloc_retval) {
+      free(rptr);
       fprintf(stderr, "Unable to allocate memory to log to syslog\n");
       exit(1);
+    } else {
+      rptr = realloc_retval;
     }
   }
   /*
@@ -350,10 +354,13 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     /* 
     //  cut off everything we don't need 
     */
-    rptr = realloc(rptr, (size_t)rptrLength);     
-    if(NULL == rptr) {
+    realloc_retval = realloc(rptr, (size_t)rptrLength);     
+    if(NULL == realloc_retval) {
+      free(rptr);
       fprintf(stderr, "Unable to allocate memory to log to syslog\n");
       exit(1);
+    } else {
+      rptr = realloc_retval;
     }
   } else {
     /* 
