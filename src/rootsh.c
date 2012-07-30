@@ -1654,8 +1654,8 @@ void usage(void) {
 
 bool readConfigFile(void) {
   FILE *config = NULL;
-  char *line = NULL;
-  size_t lineSize = 0;
+  char line[MAXPATHLEN];
+  int const lineSize = sizeof(line);
   bool retval;
   
   config = fopen(CONFIGFILE, "r");
@@ -1685,7 +1685,7 @@ bool readConfigFile(void) {
   strcpy(defaultshell, DEFAULTSHELL);
   
   
-  while(-1 != getline(&line, &lineSize, config)) {
+  while(NULL != fgets(line, lineSize, config)) {
     char key[MAXPATHLEN+1];
     char value[MAXPATHLEN+1];
 
@@ -1735,14 +1735,8 @@ bool readConfigFile(void) {
       }
       /* just ignore extra config values */
     }
-
-    free(line);
-    line = NULL;
   }
   
-  free(line);
-  line = NULL;
-
   retval = true;
   
  cleanup:
