@@ -213,13 +213,19 @@ static bool logtosyslog = false;
 static bool logtosyslog = true;
 #endif
 
+#ifndef SYSLOGFACILITY
+#define SYSLOGFACILITY LOG_LOCAL5
+#endif
+
+#ifndef SYSLOGPRIORITY
+#define SYSLOGPRIORITY LOG_NOTICE
+#endif
+
 #ifdef LOGUSERNAMETOSYSLOG
 static bool syslogLogUsername = true;
 #else
 static bool syslogLogUsername = false;
 #endif
-static char syslogfacility[MAXPATHLEN+1];
-static char syslogpriority[MAXPATHLEN+1];
 
 #ifdef LINECNT
 static bool syslogLogLineCount = true;
@@ -1600,7 +1606,7 @@ void version() {
   printf("Logging to file? %d\n", logtofile);
   printf("logfiles go to directory %s\n", logdir);
   printf("Logging to syslog? %d\n", logtosyslog);
-  printf("syslog messages go to facility.priority %s.%s\n", syslogfacility, syslogpriority);
+  printf("syslog messages go to facility.priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
   if(syslogLogLineCount) {
     printf("syslog line numbering is on\n");
   } else {
@@ -1664,21 +1670,6 @@ bool readConfigFile(void) {
   strcpy(logdir, LOGDIR);
 
   
-  /* setup syslog defaults */
-  if(strlen(SYSLOGFACILITYNAME) > MAXPATHLEN) {
-    fprintf(stderr, "Compiled value for syslog facility: '%s' is longer than max path len: %d\n", SYSLOGFACILITYNAME, MAXPATHLEN);
-    retval = false;
-    goto cleanup;
-  }
-  strcpy(syslogfacility, SYSLOGFACILITYNAME);
-
-  if(strlen(SYSLOGPRIORITYNAME) > MAXPATHLEN) {
-    fprintf(stderr, "Compiled value for syslog priority: '%s' is longer than max path len: %d\n", SYSLOGPRIORITYNAME, MAXPATHLEN);
-    retval = false;
-    goto cleanup;
-  }
-  strcpy(syslogpriority, SYSLOGPRIORITYNAME);  
-
   /* setup default shell */
   if(strlen(DEFAULTSHELL) > MAXPATHLEN) {
     fprintf(stderr, "Compiled value for default shell: '%s' is longer than max path len: %d\n", DEFAULTSHELL, MAXPATHLEN);
@@ -1716,20 +1707,6 @@ bool readConfigFile(void) {
         } else {
           logtosyslog = false;
         }
-      } else if(0 == strncmp("syslog.facility", key, sizeof(key))) {
-        if(strlen(value) > MAXPATHLEN) {
-          fprintf(stderr, "Configured value for syslog.facility: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
-          retval = false;
-          goto cleanup;
-        }
-        strcpy(syslogfacility, value);
-      } else if(0 == strncmp("syslog.priority", key, sizeof(key))) {
-        if(strlen(value) > MAXPATHLEN) {
-          fprintf(stderr, "Configured value for syslog.priority: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
-          retval = false;
-          goto cleanup;
-        }
-        strcpy(syslogpriority, value);
       } else if(0 == strncmp("syslog.linenumbering", key, sizeof(key))) {
         if(parseBool(value)) {
           syslogLogLineCount = true;

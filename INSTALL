@@ -96,9 +96,6 @@ Step 6. Configure your installation
         Using this option will allow you to change the default
         priority "local5.notice":
 
-        This setting can be overriden at runtime by setting
-        "syslog.facility" and "syslog.priority" in rootsh.cfg.
-
 	
 	--disable-linenumbering
 
