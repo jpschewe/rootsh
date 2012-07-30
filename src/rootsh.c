@@ -1616,19 +1616,20 @@ void version() {
 
   if(logtosyslog) {
     printf("Logging to syslog.\n");
+  
+    printf("syslog messages go to facility.priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
+    if(syslogLogLineCount) {
+      printf("syslog line numbering is on\n");
+    } else {
+      printf("syslog line numbering is off\n");
+    }
+    if(syslogLogUsername) {
+      printf("syslog logging of username is on\n");
+    } else {
+      printf("syslog logging of username is off\n");
+    }
   }
   
-  printf("syslog messages go to facility.priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
-  if(syslogLogLineCount) {
-    printf("syslog line numbering is on\n");
-  } else {
-    printf("syslog line numbering is off\n");
-  }
-  if(syslogLogUsername) {
-    printf("syslog logging of username is on\n");
-  } else {
-    printf("syslog logging of username is off\n");
-  }
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
 #endif
