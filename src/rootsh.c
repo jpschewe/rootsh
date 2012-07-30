@@ -1609,9 +1609,15 @@ void version() {
   char const * const defaultShell = getDefaultshell();
   
   printf("%s version %s\n", progName,VERSION);
-  printf("Logging to file? %d\n", logtofile);
-  printf("logfiles go to directory %s\n", logdir);
-  printf("Logging to syslog? %d\n", logtosyslog);
+  if(logtofile) {
+    printf("Logging to file.\n");
+    printf("Logfiles go to directory '%s'\n", logdir);
+  }
+
+  if(logtosyslog) {
+    printf("Logging to syslog.\n");
+  }
+  
   printf("syslog messages go to facility.priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
   if(syslogLogLineCount) {
     printf("syslog line numbering is on\n");
