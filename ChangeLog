@@ -103,4 +103,5 @@
 
 2012-07-29 Jon Schewe <jpschewe@mtu.net>
 	* Added support for config file for system defaults
-	
+	* released as 1.6.0
+
