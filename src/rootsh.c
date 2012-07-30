@@ -216,9 +216,15 @@ static bool logtosyslog = true;
 #ifndef SYSLOGFACILITY
 #define SYSLOGFACILITY LOG_LOCAL5
 #endif
+#ifndef SYSLOGFACILITYNAME
+#define SYSLOGFACILITYNAME "local5"
+#endif
 
 #ifndef SYSLOGPRIORITY
 #define SYSLOGPRIORITY LOG_NOTICE
+#endif
+#ifndef SYSLOGPRIORITYNAME
+#define SYSLOGPRIORITYNAME "notice"
 #endif
 
 #ifdef LOGUSERNAMETOSYSLOG
@@ -836,7 +842,7 @@ void dologging(char *msgbuf, int msglen) {
   }
 
   if (logtosyslog) {
-    write2syslog(msgbuf, msglen, syslogLogLineCount);
+    write2syslog(msgbuf, msglen, syslogLogLineCount, SYSLOGFACILITY, SYSLOGPRIORITY);
   }
 
 }
@@ -966,7 +972,7 @@ void endlogging() {
 
 
   if (logtosyslog) {
-    write2syslog("\r\n", 2, syslogLogLineCount);
+    write2syslog("\r\n", 2, syslogLogLineCount, SYSLOGFACILITY, SYSLOGPRIORITY);
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
         userName, ttyname(0), progName, sessionId);
     closelog();

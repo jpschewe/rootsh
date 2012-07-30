@@ -177,7 +177,8 @@ char *stripesc(char *escBuffer) {
 }
 
 
-void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
+void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt,
+                  int const facility, int const priority) {
   static size_t rptrLength = 0;
   /* 
   //  buffer where remaining input will be kept 
@@ -286,10 +287,10 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     //  send the resulting line to syslog 
     */
     if(useLinecnt) {
-      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%03d: %s", linecnt++, eptr);
+      syslog(facility | priority, "%03d: %s", linecnt++, eptr);
       if (linecnt == 101) linecnt = 0;
     } else {
-      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s", eptr);
+      syslog(facility | priority, "%s", eptr);
     }
     /*
     //  release the escape-free buffer 
