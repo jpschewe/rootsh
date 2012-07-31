@@ -70,7 +70,10 @@ AC_DEFUN([AC_TDD_GCOV],
   COVERAGE_CFLAGS="-O0 -fprofile-arcs -ftest-coverage"
   COVERAGE_CXXFLAGS="-O0 -fprofile-arcs -ftest-coverage"	
   COVERAGE_LDFLAGS="-lgcov"
-
-fi
+  HAVE_GCOV=1
+else
+  HAVE_GCOV=0
+fi # use_gcov
+AM_CONDITIONAL([HAVE_GCOV], [test "x$HAVE_GCOV" = x1])
 ]) # AC_TDD_GCOV
 

@@ -4,6 +4,5 @@ rootsh_SOURCES += write2syslog.c
 rootsh_SOURCES += configParser.c
 rootsh_LDADD = @LIBOBJS@
 
-AM_CFLAGS = -DCONFIGFILE="\"@sysconfdir@/rootsh.cfg\"" $(COVERAGE_CFLAGS)
-AM_LDFLAGS=$(COVERAGE_LDFLAGS)
+AM_CFLAGS = -DCONFIGFILE="\"@sysconfdir@/rootsh.cfg\""
 
