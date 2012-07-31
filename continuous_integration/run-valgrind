@@ -1,0 +1,51 @@
+#!/bin/sh
+
+debug() { ! "${log_debug-false}" || log "DEBUG: $*" >&2; }
+log() { printf '%s\n' "$*"; }
+warn() { log "WARNING: $*" >&2; }
+error() { log "ERROR: $*" >&2; }
+fatal() { error "$*"; exit 1; }
+mydir=$(cd "$(dirname "$0")" && pwd -L) || fatal "Unable to determine script directory"
+
+PATH=${PATH}:/usr/local/bin:/opt/local/bin
+export PATH
+
+# make sure everything is built for debug
+cd "${WORKSPACE}"
+make distclean
+./bootstrap.sh || fatal "Error bootstrapping"
+CFLAGS="-g" ./configure --prefix="${WORKSPACE}"/install || fatal "Error configuring"
+make || fatal "Error building"
+
+# run valgrind on the tests
+cd "${WORKSPACE}"
+START=$(date +%s)
+valgrind --track-fds=yes --leak-check=full --track-origins=yes \
+    --error-limit=no \
+    --xml=yes --xml-file="${mydir}/test-valgrind.xml" \
+    --gen-suppressions=all --suppressions="${mydir}/valgrind_suppression_rules.txt" \
+    "test/testConfigParser" || fatal "Error running valgrind on tests"
+END=$(date +%s)
+DURATION=$(( ${END} - ${START} ))
+cd "${mydir}"
+./xUnit/transform_valgrind.py \
+    -i test-valgrind.xml \
+    -o test-valgrind.TEST.xml -d ${DURATION} \
+    || fatal "Error transforming test valgrind output"
+
+
+# run valgrind on the executable
+cd "${WORKSPACE}"
+START=$(date +%s)
+valgrind --track-fds=yes --leak-check=full --track-origins=yes \
+    --error-limit=no \
+    --xml=yes --xml-file="${mydir}/rootsh-valgrind.xml" \
+    --gen-suppressions=all --suppressions="${mydir}/valgrind_suppression_rules.txt" \
+    "src/rootsh" -c ls || fatal "Error running valgrind on tests"
+END=$(date +%s)
+DURATION=$(( ${END} - ${START} ))
+cd "${mydir}"
+./xUnit/transform_valgrind.py \
+    -i rootsh-valgrind.xml \
+    -o rootsh-valgrind.TEST.xml -d ${DURATION} \
+    || fatal "Error transforming rootsh valgrind output"

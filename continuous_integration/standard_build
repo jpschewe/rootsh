@@ -45,40 +45,6 @@ make || fatal "Error building"
 
 make check || fatal "Error running tests"
 
-# run valgrind on the tests
-cd "${WORKSPACE}"
-START=$(date +%s)
-valgrind --track-fds=yes --leak-check=full --track-origins=yes \
-    --error-limit=no \
-    --xml=yes --xml-file="${mydir}/test-valgrind.xml" \
-    --gen-suppressions=all --suppressions="${mydir}/valgrind_suppression_rules.txt" \
-    "test/testConfigParser" || fatal "Error running valgrind on tests"
-END=$(date +%s)
-DURATION=$(( ${END} - ${START} ))
-cd "${mydir}"
-./xUnit/transform_valgrind.py \
-    -i test-valgrind.xml \
-    -o test-valgrind.TEST.xml -d ${DURATION} \
-    || fatal "Error transforming test valgrind output"
-
-
-# run valgrind on the executable
-cd "${WORKSPACE}"
-START=$(date +%s)
-valgrind --track-fds=yes --leak-check=full --track-origins=yes \
-    --error-limit=no \
-    --xml=yes --xml-file="${mydir}/rootsh-valgrind.xml" \
-    --gen-suppressions=all --suppressions="${mydir}/valgrind_suppression_rules.txt" \
-    "src/rootsh" -c ls || fatal "Error running valgrind on tests"
-END=$(date +%s)
-DURATION=$(( ${END} - ${START} ))
-cd "${mydir}"
-./xUnit/transform_valgrind.py \
-    -i rootsh-valgrind.xml \
-    -o rootsh-valgrind.TEST.xml -d ${DURATION} \
-    || fatal "Error transforming rootsh valgrind output"
-
-
 ${mydir}/copy-paste-detector || fatal "Error running copy paste detect"
 
 cd ${mydir}
@@ -87,3 +53,6 @@ cd ${mydir}
 # cppcheck
 cd ${WORKSPACE}
 cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
+
+${mydir}/run-valgrind || fatal "Error running valgrind"
+
