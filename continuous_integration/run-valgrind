@@ -12,7 +12,7 @@ export PATH
 
 # make sure everything is built for debug
 cd "${WORKSPACE}"
-make distclean
+make distclean || fatal "Error doing distclean" 
 ./bootstrap.sh || fatal "Error bootstrapping"
 CFLAGS="-g" ./configure --prefix="${WORKSPACE}"/install || fatal "Error configuring"
 make || fatal "Error building"
