@@ -2,6 +2,8 @@ dnl  ----- Start off like we always need to
 AC_INIT([rootsh],[1.6.3])
 AC_CONFIG_SRCDIR(src)
 
+AC_CONFIG_MACRO_DIR([m4])
+
 dnl ---- AC_CONFIG_HEADER(src/config.h)
 AC_CONFIG_HEADERS([src/config.h])
 
@@ -458,6 +460,17 @@ CFLAGS="$CFLAGS -Werror"
 
 AC_PATH_PROG(SUCMD, su, "/bin/false")
 AC_DEFINE_UNQUOTED(SUCMD,"$SUCMD", "path to the su command")
+
+
+###########################
+# gcov coverage reporting
+###########################
+
+m4_include([m4/gcov.m4])
+AC_TDD_GCOV
+AC_SUBST(COVERAGE_CFLAGS)
+AC_SUBST(COVERAGE_CXXFLAGS)
+AC_SUBST(COVERAGE_LDFLAGS)
 
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
