@@ -57,3 +57,4 @@ make check || fatal "Error running tests"
 
 ${mydir}/run-valgrind || fatal "Error running valgrind"
 
+${mydir}/run-coverage || fatal "Error running coverage"

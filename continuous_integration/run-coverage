@@ -1,0 +1,30 @@
+#!/bin/sh
+
+debug() { ! "${log_debug-false}" || log "DEBUG: $*" >&2; }
+log() { printf '%s\n' "$*"; }
+warn() { log "WARNING: $*" >&2; }
+error() { log "ERROR: $*" >&2; }
+fatal() { error "$*"; exit 1; }
+mydir=$(cd "$(dirname "$0")" && pwd -L) || fatal "Unable to determine script directory"
+
+PATH=${PATH}:/usr/local/bin:/opt/local/bin
+export PATH
+
+# build for gcov output
+cd "${WORKSPACE}"
+make distclean || fatal "Error doing distclean" 
+./bootstrap.sh || fatal "Error bootstrapping"
+./configure --enable-gcov --prefix="${WORKSPACE}"/install || fatal "Error configuring"
+make || fatal "Error building"
+
+# run tests
+make check
+./src/rootsh -c ls
+
+# gather results
+make gather-coverage-data || fatal "Error gathering coverage data"
+
+# convert lcov output to cobertura output
+${mydir}/lcov-to-cobertura-xml/lcov-to-cobertura-xml.py \
+    -b "${mydir}/.." -e ".*usr.include.*" -o "${mydir}/coverage.xml" \
+    ${WORKSPACE}/coverage.lcov || fatal "Error converting lcov to cobertura"
