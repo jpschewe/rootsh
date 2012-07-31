@@ -29,6 +29,16 @@ if [ ${success} -eq 0 ]; then
     fatal "Error running git clean"
 fi
 
+${mydir}/copy-paste-detector || fatal "Error running copy paste detect"
+
+cd ${mydir}
+./sloccount.sh || fatal "Error running sloccount"
+
+# cppcheck
+cd ${WORKSPACE}
+cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
+
+
 # setup test config
 mkdir -p "${WORKSPACE}/install/etc"
 mkdir -p "${WORKSPACE}/install/log"
@@ -44,15 +54,6 @@ cd "${WORKSPACE}"
 make || fatal "Error building"
 
 make check || fatal "Error running tests"
-
-${mydir}/copy-paste-detector || fatal "Error running copy paste detect"
-
-cd ${mydir}
-./sloccount.sh || fatal "Error running sloccount"
-
-# cppcheck
-cd ${WORKSPACE}
-cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
 
 ${mydir}/run-valgrind || fatal "Error running valgrind"
 
