@@ -1,1 +1,8 @@
+{
+   nss-db-lookup
+   Memcheck:Leak
+   fun:malloc
+   fun:nss_parse_service_list
+   fun:__nss_database_lookup
+}
 

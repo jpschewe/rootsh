@@ -91,13 +91,17 @@
 2010-05-11 Jon Schewe <jpschewe@mtu.net>
 	* fix open calls to correctly specify mode
 	* remove warning about unused computed value
-	
+
 2010-05-17 Jon Schewe <jpschewe@mtu.net>
 	* regenerated auto files with newer auto tools
-	
+
 2010-05-20 Jon Schewe <jpschewe@mtu.net>
 	* fixed handling of sftp and scp
 
 2010-06-24 Jon Schewe <jpschewe@mtu.net>
 	* Added support for Mac and NetBSD
-	
+
+2012-07-29 Jon Schewe <jpschewe@mtu.net>
+	* Added support for config file for system defaults
+	* released as 1.6.0
+

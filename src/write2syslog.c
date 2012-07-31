@@ -177,12 +177,14 @@ char *stripesc(char *escBuffer) {
 }
 
 
-void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
+void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt,
+                  int const facility, int const priority) {
   static size_t rptrLength = 0;
   /* 
   //  buffer where remaining input will be kept 
   */
-  static char *rptr;              
+  static char *rptr;
+  char *realloc_retval;
   /* 
   //  pointer to the string which will be output 
   */
@@ -232,7 +234,14 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     /*
     //  add space for current output to remaining output 
     */
-    rptr = realloc(rptr, rptrLength + optrLength);     
+    realloc_retval = realloc(rptr, rptrLength + optrLength);
+    if(NULL == realloc_retval) {
+      free(rptr);
+      fprintf(stderr, "Unable to allocate memory to log to syslog\n");
+      exit(1);
+    } else {
+      rptr = realloc_retval;
+    }
   }
   /*
   //  fill the newly created memory with the current output 
@@ -278,10 +287,10 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     //  send the resulting line to syslog 
     */
     if(useLinecnt) {
-      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%03d: %s", linecnt++, eptr);
+      syslog(facility | priority, "%03d: %s", linecnt++, eptr);
       if (linecnt == 101) linecnt = 0;
     } else {
-      syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s", eptr);
+      syslog(facility | priority, "%s", eptr);
     }
     /*
     //  release the escape-free buffer 
@@ -346,7 +355,14 @@ void write2syslog(const char *optr, size_t optrLength, bool const useLinecnt) {
     /* 
     //  cut off everything we don't need 
     */
-    rptr = realloc(rptr, (size_t)rptrLength);     
+    realloc_retval = realloc(rptr, (size_t)rptrLength);     
+    if(NULL == realloc_retval) {
+      free(rptr);
+      fprintf(stderr, "Unable to allocate memory to log to syslog\n");
+      exit(1);
+    } else {
+      rptr = realloc_retval;
+    }
   } else {
     /* 
     //  we are done. a complete line was output with no extra characters left 

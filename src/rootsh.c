@@ -70,7 +70,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #if HAVE_GETOPT_H
 #  include <getopt.h>
 #else
-#  include "getopt.h"
+#  include "gnugetopt.h"
 #endif
 
 #include <stdbool.h>
@@ -213,13 +213,25 @@ static bool logtosyslog = false;
 static bool logtosyslog = true;
 #endif
 
+#ifndef SYSLOGFACILITY
+#define SYSLOGFACILITY LOG_LOCAL5
+#endif
+#ifndef SYSLOGFACILITYNAME
+#define SYSLOGFACILITYNAME "local5"
+#endif
+
+#ifndef SYSLOGPRIORITY
+#define SYSLOGPRIORITY LOG_NOTICE
+#endif
+#ifndef SYSLOGPRIORITYNAME
+#define SYSLOGPRIORITYNAME "notice"
+#endif
+
 #ifdef LOGUSERNAMETOSYSLOG
 static bool syslogLogUsername = true;
 #else
 static bool syslogLogUsername = false;
 #endif
-static char syslogfacility[MAXPATHLEN+1];
-static char syslogpriority[MAXPATHLEN+1];
 
 #ifdef LINECNT
 static bool syslogLogLineCount = true;
@@ -255,9 +267,9 @@ int main(int argc, char **argv) {
   //
   //  long_options	Used by getopt_long.
   */
+  int childPid;
   char *shell, *shellCommands = NULL;
   static char sessionIdEnv[sizeof(sessionId) + 17];
-  int childPid;
   int c, option_index = 0;
   struct option long_options[] = {
       {"help", 0, 0, 'h'},
@@ -359,41 +371,29 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  if(isatty(0)) {
-    /* 
-    //  Save original terminal parameters.
-    */
-    tcgetattr(STDIN_FILENO, &termParams);
-    /*
-    //  Save original window size.
-    */
-    ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+  /* 
+  //  Save original terminal parameters.
+  */
+  tcgetattr(STDIN_FILENO, &termParams);
+  /*
+  //  Save original window size.
+  */
+  ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
   
-    /* 
-    //  fork a child process, create a pty pair, 
-    //  make the slave the controlling terminal,
-    //  create a new session, become session leader 
-    //  and attach filedescriptors 0-2 to the slave pty.
-    */
-    if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
-      perror("fork");
-      exit(EXIT_FAILURE);
-    }
-    if (childPid == 0) {
-      execShell(shell, shellCommands);
-    } else {
-      logSession(childPid);
-    }
-  } else {
-    int msglen;
-    char msgbuf[BUFSIZ];
-
-    /* note that it's not a tty and exec the shell */
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) -1),
-                      "Not a tty, just execing command\n");
-    dologging(msgbuf, msglen);
-    endlogging();
+  /* 
+  //  fork a child process, create a pty pair, 
+  //  make the slave the controlling terminal,
+  //  create a new session, become session leader 
+  //  and attach filedescriptors 0-2 to the slave pty.
+  */
+  if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
+    perror("fork");
+    exit(EXIT_FAILURE);
+  }
+  if (childPid == 0) {
     execShell(shell, shellCommands);
+  } else {
+    logSession(childPid);
   }
   exit(EXIT_SUCCESS);
 }
@@ -456,12 +456,14 @@ void logSession(const int childPid) {
 #else
   newTty.c_iflag &= ~(INLCR|IGNCR|ICRNL|IXON);
 #endif
-  /* 
-  //  Set the new tty modes.
-  */
-  if (tcsetattr(0, TCSANOW, &newTty) < 0) {
-    perror("tcsetattr: stdin");
-    exit(EXIT_FAILURE);
+  if(isatty(0)) {
+    /* 
+    //  Set the new tty modes.
+    */
+    if (tcsetattr(0, TCSANOW, &newTty) < 0) {
+      perror("tcsetattr: stdin");
+      exit(EXIT_FAILURE);
+    }
   }
   
   /* 
@@ -566,9 +568,10 @@ void execShell(const char *shell, const char *shellCommands) {
   //  otherwise call it as an interactive shell.
   */
   if (useLoginShell) {
+    char *slash;
     dashShell = strdup(shell);
-    dashShell = strrchr(dashShell, '/');
-    dashShell[0] = '-';
+    slash = strchr(dashShell, '/');
+    *slash = '-';
   } else {
     dashShell = NULL;
   }
@@ -591,6 +594,8 @@ void execShell(const char *shell, const char *shellCommands) {
   } else {
     perror(shell);
   }
+
+  
   perror(progName);
   exit(EXIT_FAILURE);
 }
@@ -601,12 +606,24 @@ void execShell(const char *shell, const char *shellCommands) {
  * @return the new value of shellCommands
  */
 char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
+  char *realloc_retval;
   while (optind < argc) {
     if (! shellCommands) {
       shellCommands = calloc(sizeof(char), 1);
+      if(NULL == shellCommands) {
+        fprintf(stderr, "Cannot allocate memory for shellCommands\n");
+        exit(1);
+      }
     }
-    shellCommands = realloc(shellCommands, 
+    realloc_retval = realloc(shellCommands, 
                             strlen(shellCommands) + strlen(argv[optind]) + 2);
+    if(NULL == realloc_retval) {
+      free(shellCommands);
+      fprintf(stderr, "Cannot allocate memory for shellCommands\n");
+      exit(1);
+    } else {
+      shellCommands = realloc_retval;
+    }
     strcat(shellCommands, argv[optind]);
     strcat(shellCommands, " ");
     optind++;
@@ -691,7 +708,6 @@ int beginlogging(const char *shellCommands) {
   struct stat statBuf;
   time_t now;
   char defLogFileName[MAXPATHLEN - 7];
-  int sec, min, hour, day, month, year;
   static char sessionIdWithUid[sizeof(sessionId) + 10];
 
   if (!logtofile && !logtosyslog) {
@@ -700,6 +716,8 @@ int beginlogging(const char *shellCommands) {
   }
 
   if (logtofile) {
+    int sec, min, hour, day, month, year;
+    
     /*
     //  Construct the logfile name. 
     //  logdir/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
@@ -745,7 +763,7 @@ int beginlogging(const char *shellCommands) {
     /* 
     //  Open the logfile 
     */
-    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_SYNC|O_CREAT|O_APPEND,
+    if ((logFile = open(logFileName, O_RDWR|O_CREAT|O_SYNC|O_APPEND,
         S_IRUSR|S_IWUSR)) == -1) {
       perror(logFileName);
       return(0);
@@ -824,7 +842,7 @@ void dologging(char *msgbuf, int msglen) {
   }
 
   if (logtosyslog) {
-    write2syslog(msgbuf, msglen, syslogLogLineCount);
+    write2syslog(msgbuf, msglen, syslogLogLineCount, SYSLOGFACILITY, SYSLOGPRIORITY);
   }
 
 }
@@ -859,13 +877,15 @@ void endlogging() {
   //			inode and device.
   //  
   */
-  time_t now;
-  int msglen;
-  char msgbuf[BUFSIZ];
-  struct stat statBuf;
-  char closedLogFileName[MAXPATHLEN];
 
   if (logtofile) {
+    struct stat statBuf;
+    time_t now;
+    char msgbuf[BUFSIZ];
+    int msglen;
+    char closedLogFileName[MAXPATHLEN];
+      
+    
     now = time(NULL);
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
         "%s session closed for %s on %s at %s", 
@@ -924,7 +944,7 @@ void endlogging() {
         }
       }
     }
-    if (strlen(msgbuf) > 0) {
+    if (*msgbuf != '\0') {
       /*
       //  There is an error message. Send publish it and then try to
       //  save the contents of the (manipulated) logfile into a new
@@ -952,7 +972,7 @@ void endlogging() {
 
 
   if (logtosyslog) {
-    write2syslog("\r\n", 2, syslogLogLineCount);
+    write2syslog("\r\n", 2, syslogLogLineCount, SYSLOGFACILITY, SYSLOGPRIORITY);
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
         userName, ttyname(0), progName, sessionId);
     closelog();
@@ -975,9 +995,11 @@ int recoverfile(int ohandle, char *recoverFileName) {
   //  fd		The file descriptor of the recover file.
   //
   */
-  char msgbuf[BUFSIZ];
-  int fd, msglen;
+  int fd;
   if ((fd = forceopen(recoverFileName)) != -1) {
+    char msgbuf[BUFSIZ];
+    int msglen;
+    
     lseek(ohandle, 0, SEEK_SET);
     while ((msglen = read(ohandle, (void *)msgbuf, BUFSIZ)) > 0) {
       if (write(fd, (void *)msgbuf, msglen) != msglen) {
@@ -1092,16 +1114,9 @@ char *setupusername() {
 
 char *setupshell() {
   /*
-  //  isvalid	A flag indicating a shell found in /etc/shells.
-  //  
   //  shell	The path to the shell of the calling user.
-  //  
-  //  shellenv	A string containing "SHELL=<path_to_shell>" which will
-  //		be added to the environment.
   */
-  int isvalid;
-  char *shell, *shellenv;
-  char *validshell;
+  char *shell;
   
   /* 
   //  Try to get the users current shell with two methods.
@@ -1112,6 +1127,15 @@ char *setupshell() {
   if (shell == NULL) {
     fprintf(stderr, "could not determine a valid shell\n");
   } else {
+    /*
+    //  isvalid	A flag indicating a shell found in /etc/shells.
+    //  
+    //  shellenv	A string containing "SHELL=<path_to_shell>" which will
+    //		be added to the environment.
+    */
+    int isvalid;
+    char *validshell;
+    
 #if HAS_ETC_SHELLS
     /*
     //  Compare it to the allowed shells in /etc/shells.
@@ -1142,7 +1166,8 @@ char *setupshell() {
     if( (*progName == '-' && strcmp(basename(shell), progName + 1) == 0 )
          || strcmp(basename(shell), progName) == 0
          ) {
-      char *dshell = getDefaultshell();
+      char *shellenv;
+      char const * const dshell = getDefaultshell();
       shell = calloc(sizeof(char), strlen(dshell) + 1);
       strcpy(shell, dshell);
       shellenv = calloc(sizeof(char), strlen(shell) + 7);
@@ -1199,7 +1224,7 @@ char *getDefaultshell(void) {
   //  defaultshell	A static memory area containing the path of the 
   //			default shell to use.
   */
-  if (strlen(defaultshell) > 0) {
+  if (*defaultshell != '\0') {
     return defaultshell;
   } else {
     /*
@@ -1229,6 +1254,7 @@ char **saveenv(char *name) {
   */
   static char **senv = NULL;
   static char **senvp;
+  char **realloc_retval;
   if (name == NULL) {
     return senv;
   } else {
@@ -1246,7 +1272,14 @@ char **saveenv(char *name) {
         /*
         //  Allocate memory for another pointer
         */
-        senv = realloc(senv, (senvp - senv + 2) * sizeof(char *));
+        realloc_retval = realloc(senv, (senvp - senv + 2) * sizeof(char *));
+        if(NULL == realloc_retval) {
+          free(senv);
+          fprintf(stderr, "Unable to allocate memory for saving environemnt\n");
+          exit(1);
+        } else {
+          senv = realloc_retval;
+        }
       }
       senvp = senv;
       /*
@@ -1576,20 +1609,27 @@ void version() {
   char const * const defaultShell = getDefaultshell();
   
   printf("%s version %s\n", progName,VERSION);
-  printf("Logging to file? %d\n", logtofile);
-  printf("logfiles go to directory %s\n", logdir);
-  printf("Logging to syslog? %d\n", logtosyslog);
-  printf("syslog messages go to facility.priority %s.%s\n", syslogfacility, syslogpriority);
-  if(syslogLogLineCount) {
-    printf("syslog line numbering is on\n");
-  } else {
-    printf("syslog line numbering is off\n");
+  if(logtofile) {
+    printf("Logging to file.\n");
+    printf("Logfiles go to directory '%s'\n", logdir);
   }
-  if(syslogLogUsername) {
-    printf("syslog logging of username is on\n");
-  } else {
-    printf("syslog logging of username is off\n");
+
+  if(logtosyslog) {
+    printf("Logging to syslog.\n");
+  
+    printf("syslog messages go to facility.priority %s.%s\n", SYSLOGFACILITYNAME, SYSLOGPRIORITYNAME);
+    if(syslogLogLineCount) {
+      printf("syslog line numbering is on\n");
+    } else {
+      printf("syslog line numbering is off\n");
+    }
+    if(syslogLogUsername) {
+      printf("syslog logging of username is on\n");
+    } else {
+      printf("syslog logging of username is off\n");
+    }
   }
+  
 #ifndef SUCMD
   printf("running as non-root user is not possible\n");
 #endif
@@ -1621,8 +1661,9 @@ void usage(void) {
 
 bool readConfigFile(void) {
   FILE *config = NULL;
-  char *line = NULL;
-  size_t lineSize = 0;
+  char line[MAXPATHLEN];
+  int const lineSize = sizeof(line);
+  bool retval;
   
   config = fopen(CONFIGFILE, "r");
   if(NULL == config) {
@@ -1636,33 +1677,22 @@ bool readConfigFile(void) {
   /* copy compiled value into logdir */
   if(strlen(LOGDIR) > MAXPATHLEN) {
     fprintf(stderr, "Compiled value for logdir: '%s' is longer than max path len: %d\n", LOGDIR, MAXPATHLEN);
-    return false;
+    retval = false;
+    goto cleanup;
   }
   strcpy(logdir, LOGDIR);
 
   
-  /* setup syslog defaults */
-  if(strlen(SYSLOGFACILITYNAME) > MAXPATHLEN) {
-    fprintf(stderr, "Compiled value for syslog facility: '%s' is longer than max path len: %d\n", SYSLOGFACILITYNAME, MAXPATHLEN);
-    return false;
-  }
-  strcpy(syslogfacility, SYSLOGFACILITYNAME);
-
-  if(strlen(SYSLOGPRIORITYNAME) > MAXPATHLEN) {
-    fprintf(stderr, "Compiled value for syslog priority: '%s' is longer than max path len: %d\n", SYSLOGPRIORITYNAME, MAXPATHLEN);
-    return false;
-  }
-  strcpy(syslogpriority, SYSLOGPRIORITYNAME);  
-
   /* setup default shell */
   if(strlen(DEFAULTSHELL) > MAXPATHLEN) {
     fprintf(stderr, "Compiled value for default shell: '%s' is longer than max path len: %d\n", DEFAULTSHELL, MAXPATHLEN);
-    return false;
+    retval = false;
+    goto cleanup;
   }
   strcpy(defaultshell, DEFAULTSHELL);
   
   
-  while(-1 != getline(&line, &lineSize, config)) {
+  while(NULL != fgets(line, lineSize, config)) {
     char key[MAXPATHLEN+1];
     char value[MAXPATHLEN+1];
 
@@ -1680,7 +1710,8 @@ bool readConfigFile(void) {
       } else if(0 == strncmp("file.dir", key, sizeof(key))) {
         if(strlen(value) > MAXPATHLEN) {
           fprintf(stderr, "Configured value for logdir: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
-          return false;
+          retval = false;
+          goto cleanup;
         }
         strcpy(logdir, value);
       } else if(0 == strncmp("syslog", key, sizeof(key))) {
@@ -1689,18 +1720,6 @@ bool readConfigFile(void) {
         } else {
           logtosyslog = false;
         }
-      } else if(0 == strncmp("syslog.facility", key, sizeof(key))) {
-        if(strlen(value) > MAXPATHLEN) {
-          fprintf(stderr, "Configured value for syslog.facility: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
-          return false;
-        }
-        strcpy(syslogfacility, value);
-      } else if(0 == strncmp("syslog.priority", key, sizeof(key))) {
-        if(strlen(value) > MAXPATHLEN) {
-          fprintf(stderr, "Configured value for syslog.priority: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
-          return false;
-        }
-        strcpy(syslogpriority, value);
       } else if(0 == strncmp("syslog.linenumbering", key, sizeof(key))) {
         if(parseBool(value)) {
           syslogLogLineCount = true;
@@ -1716,23 +1735,18 @@ bool readConfigFile(void) {
       } else if(0 == strncmp("defaultshell", key, sizeof(key))) {
         if(strlen(value) > MAXPATHLEN) {
           fprintf(stderr, "Configured value for defaultshell: '%s' is longer than max path len: %d\n", value, MAXPATHLEN);
-          return false;
+          retval = false;
+          goto cleanup;
         }
         strcpy(defaultshell, value);
       }
       /* just ignore extra config values */
     }
-
-    free(line);
-    line = NULL;
   }
   
-  if(NULL != line) {
-    free(line);
-    line = NULL;
-  }
-
+  retval = true;
+  
+ cleanup:
   fclose(config);
-
-  return true;
+  return retval;
 }

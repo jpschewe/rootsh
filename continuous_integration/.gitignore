@@ -1,4 +1,5 @@
 *.TEST.xml
 *-valgrind.xml
 cpd.xml
-
+sloccount.sc
+cppcheck.xml
