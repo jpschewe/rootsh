@@ -18,6 +18,9 @@ CFLAGS="-g" ./configure --prefix="${WORKSPACE}"/install || fatal "Error configur
 make || fatal "Error building"
 
 # run valgrind on the tests
+cd "${WORKSPACE}/test"
+make testConfigParser
+
 cd "${WORKSPACE}"
 START=$(date +%s)
 valgrind --track-fds=yes --leak-check=full --track-origins=yes \
