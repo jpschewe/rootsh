@@ -36,7 +36,7 @@ cd ${mydir}
 
 # cppcheck
 cd ${WORKSPACE}
-cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
+cppcheck --force -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
 
 
 # setup test config
