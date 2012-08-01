@@ -1607,7 +1607,8 @@ char **build_scp_args( char *str, size_t reserve ) {
 
 void version() {
   char const * const defaultShell = getDefaultshell();
-  
+
+  printf("Config file is %s\n", CONFIGFILE);
   printf("%s version %s\n", progName,VERSION);
   if(logtofile) {
     printf("Logging to file.\n");
