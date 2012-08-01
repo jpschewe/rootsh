@@ -1,0 +1,31 @@
+# -*- Makefile -*-
+# Coverage targets
+
+if HAVE_GCOV
+
+  .PHONY: clean-gcda
+  clean-gcda:
+	@echo Removing old coverage results
+	-find -name '*.gcda' -print | xargs -r rm
+
+  .PHONE: gather-coverage-data
+  gather-coverage-data:
+	@echo Collecting coverage data
+	$(LCOV) --directory $(top_builddir) --capture --output-file coverage.lcov --no-checksum --compat-libtool
+	$(LCOV) --remove coverage.lcov '/usr/include/*' --output-file --output-file coverage.lcov
+
+  .PHONY: coverage-html generate-coverage-html clean-coverage-html
+  coverage-html: clean-gcda
+	-$(MAKE) $(AM_MAKEFLAGS) -k check
+	$(MAKE) $(AM_MAKEFLAGS) generate-coverage-html
+
+  generate-coverage-html: gather-coverage-data
+	LANG=C $(GENHTML) --prefix $(top_builddir) --output-directory coveragereport --title "Code Coverage" --legend --show-details coverage.lcov
+
+  clean-coverage-html: clean-gcda
+	-$(LCOV) --directory $(top_builddir) -z
+	-rm -rf coverage.lcov coveragereport
+
+  clean-local: clean-coverage-html
+
+endif # HAVE_GCOV
