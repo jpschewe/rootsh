@@ -343,7 +343,7 @@ int main(int argc, char **argv) {
       }
   }
 
-  snprintf(sessionId, sizeof(sessionId), "%s[%05x]", 
+  snprintf(sessionId, sizeof(sessionId), "%s[%05d]", 
       *progName == '-' ? progName + 1 : progName, getpid());
   snprintf(sessionIdEnv, sizeof(sessionIdEnv), "ROOTSH_SESSIONID=%s",
       sessionId);
@@ -735,7 +735,7 @@ int beginlogging(const char *shellCommands) {
     min = localtime(&now)->tm_min;
     sec = localtime(&now)->tm_sec;
     snprintf(defLogFileName, (sizeof(logFileName) - 1), 
-        "%s.%04d%02d%02d%02d%02d%02d.%05x", 
+        "%s.%04d%02d%02d%02d%02d%02d.%05d", 
          userName, year,month, day, hour, min, sec, getpid());
     if (standalone) {
       if (userLogFileName && userLogFileDir) {
