@@ -709,11 +709,14 @@ int beginlogging(const char *shellCommands) {
   time_t now;
   char defLogFileName[MAXPATHLEN - 7];
   static char sessionIdWithUid[sizeof(sessionId) + 10];
+  char const * user = runAsUser ? runAsUser : getpwuid(getuid())->pw_name;
+  char const * const tty = ttyname(0);
 
   if (!logtofile && !logtosyslog) {
     fprintf(stderr, "you cannot switch off both file and syslog logging\n");
     return (0);
   }
+
 
   if (logtofile) {
     int sec, min, hour, day, month, year;
@@ -784,8 +787,8 @@ int beginlogging(const char *shellCommands) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
         "%s%s session opened for %s as %s on %s at %s", 
          isaLoginShell ? "login " : "", progName, userName, 
-         runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-         ttyname(0), ctime(&now));
+         user, 
+         tty, ctime(&now));
     if(write(logFile, msgbuf, msglen) < 0) {
       perror(logFileName);
       return(0);
@@ -809,13 +812,13 @@ int beginlogging(const char *shellCommands) {
     if (logtofile) {
       syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
           "%s=%s,%s: logging new %ssession (%s) to %s", 
-          userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-          ttyname(0), isaLoginShell ? "login " : "", sessionId, logFileName);
+          userName, user, 
+          tty, isaLoginShell ? "login " : "", sessionId, logFileName);
     } else {
       syslog(SYSLOGFACILITY | SYSLOGPRIORITY, 
           "%s=%s,%s: logging new %ssession (%s)", 
-          userName, runAsUser ? runAsUser : getpwuid(getuid())->pw_name, 
-          ttyname(0), isaLoginShell ? "login " : "", sessionId);
+          userName, user, 
+          tty, isaLoginShell ? "login " : "", sessionId);
     }
   }
 
