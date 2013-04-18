@@ -78,6 +78,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "write2syslog.h"
 #include "configParser.h"
 
+#include <inttypes.h>
+
 #if NEED_GETUSERSHELL_PROTO
 /* 
 //  solaris has no own prototypes for these three functions
@@ -710,7 +712,8 @@ int beginlogging(const char *shellCommands) {
   char defLogFileName[MAXPATHLEN - 7];
   static char sessionIdWithUid[sizeof(sessionId) + 10];
   char const * user = runAsUser ? runAsUser : getpwuid(getuid())->pw_name;
-  char const * const tty = ttyname(0);
+  char const * const rawtty = ttyname(0);
+  char const * const tty = rawtty == 0 ? "" : rawtty;
 
   if (!logtofile && !logtosyslog) {
     fprintf(stderr, "you cannot switch off both file and syslog logging\n");
@@ -720,7 +723,7 @@ int beginlogging(const char *shellCommands) {
 
   if (logtofile) {
     int sec, min, hour, day, month, year;
-    
+
     /*
     //  Construct the logfile name. 
     //  logdir/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
@@ -880,6 +883,8 @@ void endlogging() {
   //			inode and device.
   //  
   */
+  char const * const rawtty = ttyname(0);
+  char const * const tty = rawtty == 0 ? "" : rawtty;
 
   if (logtofile) {
     struct stat statBuf;
@@ -893,7 +898,7 @@ void endlogging() {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
         "%s session closed for %s on %s at %s", 
         *progName == '-' ? progName + 1 : progName,
-        userName, ttyname(0), ctime(&now)); 
+        userName, tty, ctime(&now)); 
     if(write(logFile, msgbuf, msglen) < 0) {
       perror("Error writing to logfile");
       return;
@@ -977,7 +982,7 @@ void endlogging() {
   if (logtosyslog) {
     write2syslog("\r\n", 2, syslogLogLineCount, SYSLOGFACILITY, SYSLOGPRIORITY);
     syslog(SYSLOGFACILITY | SYSLOGPRIORITY, "%s,%s: closing %s session (%s)", 
-        userName, ttyname(0), progName, sessionId);
+        userName, tty, progName, sessionId);
     closelog();
   }
 
