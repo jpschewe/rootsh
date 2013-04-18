@@ -4,7 +4,7 @@
 
 Summary: Shell wrapper to log activity
 Name: rootsh
-Version: 1.6.3
+Version: 1.6.4
 Release: 1
 License: GPL
 Group: System/Shells
@@ -45,11 +45,3 @@ mechanism.
 
 %defattr(1777, root, root)
 %{_localstatedir}/log/rootsh/
-
-%post
-echo %{_bindir}/rootsh >> /etc/shells
-
-%postun
-cat /etc/shells | grep -v %{_bindir}/rootsh >> /etc/shells.rootsh.new
-mv /etc/shells.rootsh.new /etc/shells
-rm -f /etc/shells.rootsh.new
