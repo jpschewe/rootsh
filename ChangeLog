@@ -105,3 +105,6 @@
 	* Added support for config file for system defaults
 	* released as 1.6.0
 
+2013-04-21 Jon Schewe <jpschewe@mtu.net>
+	* Handle NULL ttyname
+	* Release 1.6.4 
