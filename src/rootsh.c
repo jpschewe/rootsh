@@ -463,7 +463,11 @@ void logSession(const int childPid) {
     //  Set the new tty modes.
     */
     if (tcsetattr(0, TCSANOW, &newTty) < 0) {
-      perror("tcsetattr: stdin");
+      char msgbuf[BUFSIZ];
+      int msglen;
+      char *error = strerror(errno);
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "tcsetattr on stdin: %s", error);
+      dologging(msgbuf, msglen);
       exit(EXIT_FAILURE);
     }
   }
@@ -487,7 +491,11 @@ void logSession(const int childPid) {
     n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
                (struct timeval *) 0);
     if (n < 0 && sigwinch_received == 0) {
-      perror("select");
+      char msgbuf[BUFSIZ];
+      int msglen;
+      char *error = strerror(errno);
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "select: %s", error);
+      dologging(msgbuf, msglen);
       exit(EXIT_FAILURE);
     }
 
@@ -507,7 +515,11 @@ void logSession(const int childPid) {
     */
     if (FD_ISSET(0, &readmask)) {
       if ((n = read(0, buf, sizeof(buf))) < 0) {
-        perror("read: stdin");
+        char msgbuf[BUFSIZ];
+        int msglen;
+        char *error = strerror(errno);
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "read - stdin: %s", error);
+        dologging(msgbuf, msglen);
         exit(EXIT_FAILURE);
       }
       if (n == 0) {
@@ -517,7 +529,11 @@ void logSession(const int childPid) {
         finish(0);
       }
       if (write(masterPty, buf, n) != n) {
-        perror("write: pty");
+        char msgbuf[BUFSIZ];
+        int msglen;
+        char *error = strerror(errno);
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - pty: %s", error);
+        dologging(msgbuf, msglen);
         exit(EXIT_FAILURE);
       }
     }
@@ -536,12 +552,25 @@ void logSession(const int childPid) {
       } else {
         dologging(buf, n);
         if(write(STDOUT_FILENO, buf, n) < 0) {
-          perror("write: stdout");
+          char msgbuf[BUFSIZ];
+          int msglen;
+          char *error = strerror(errno);
+          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - stdout: %s", error);
+          dologging(msgbuf, msglen);
           exit(EXIT_FAILURE);
         }
       }
     }
   }
+
+  {
+    char const *msg = "rootsh closing duplicated pty";
+    char msgbuf[BUFSIZ];
+    int msglen;
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "%s", msg);
+    dologging(msgbuf, msglen);
+  }
+  
   exit(EXIT_SUCCESS);
 }
 
