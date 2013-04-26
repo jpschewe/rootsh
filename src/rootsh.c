@@ -243,8 +243,8 @@ static bool syslogLogLineCount = false;
 
 static char defaultshell[MAXPATHLEN+1];
 
-static char *userName;
-static char *runAsUser;
+static char *userName = 0;
+static char *runAsUser = 0;
 static int standalone;
 static int useLoginShell = 0;
 static int isaLoginShell = 0;
