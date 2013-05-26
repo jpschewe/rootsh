@@ -68,31 +68,34 @@ Jul  2 17:46:03 ws0001 rootsh-020a: 006: *** rootsh session ended by user
 Jul  2 17:46:03 ws0001 rootsh-020a: usr1234,/dev/pts/0: closing rootsh session (rootsh-020a) 
 
 where the rootsh-020a is an identifier created from the program's name and
-a 4 digit hex number which is the pid of the rootsh process. It will prepend
-every line sent to syslog and will help you to find all the entries in
-a logfile belonging to a specific session. 
-(first find the "logging new..." line for the session you're interested in,
-take the identifier like rootsh-020a in the example and grep all occurences
-of it from your logfile. If rootsh is running on many machines, there 
-may be collisions if two rootsh processes have the same pid. 
-Add the hostname to grep's pattern in this case.
-You will also find the same output locally on the ws0001 host in a file
-called like this <caller's username>.<timestamp>.<process id>
-Depending on your operating system and configuration parameter --with-logdir=
-these files can be found in /var/log/rootsh, /var/adm/rootsh or your own choice.
-The counter after the session identifier can help you find holes if you
-are not sure wether logging was incomplete (either due to manipulation
-or network problems).
-Finished session's logfiles get ".closed" appended to their names. This 
-helps you cleaning and archiving your logdir.
-If the main process thinks, the logfile was manipulated during the session,
-it tries to recreate the file and ".tampered" instead of ".closed" is attached.
+a 4 digit hex number which is the pid of the rootsh process. It will
+prepend every line sent to syslog and will help you to find all the entries
+in a logfile belonging to a specific session.
 
-There is a parameter "-i", which tells rootsh to run the shell as a login shell.
+To find the log information for a session in syslog, first find the
+"logging new..." line for the session you're interested in, take the
+identifier like rootsh-020a in the example and grep all occurences of it
+from your logfile. If rootsh is running on many machines, there may be
+collisions if two rootsh processes have the same pid. Add the hostname to
+grep's pattern in this case.  You will also find the same output locally on
+the ws0001 host in a file called like this <caller's
+username>.<timestamp>.<process id> Depending on your operating system and
+configuration parameter --with-logdir= these files can be found in
+/var/log/rootsh, /var/adm/rootsh or your own choice.  The counter after the
+session identifier can help you find holes if you are not sure weather
+logging was incomplete (either due to manipulation or network problems).
+Finished session's logfiles get ".closed" appended to their names. This
+helps you cleaning and archiving your logdir.  If the main process thinks,
+the logfile was manipulated during the session, it tries to recreate the
+file and ".tampered" instead of ".closed" is attached.
 
-You can use the parameter -u if you want to run the shell as another non-root user.
+There is a parameter "-i", which tells rootsh to run the shell as a login
+shell.
 
-Better look at the manpage at http://people.consol.de/~lausser/rootsh/rootsh.html
+You can use the parameter -u if you want to run the shell as another
+non-root user. When this option is used the logfile will show
+"usr1234=root" at the start of the logging. Without using this option the
+line will show "root=root" as no other user information is available.
 
 
 
