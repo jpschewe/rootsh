@@ -643,7 +643,7 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
       shellCommands = calloc(sizeof(char), 1);
       if(NULL == shellCommands) {
         fprintf(stderr, "Cannot allocate memory for shellCommands\n");
-        exit(1);
+        exit(EXIT_FAILURE);
       }
     }
     realloc_retval = realloc(shellCommands, 
@@ -651,7 +651,7 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
     if(NULL == realloc_retval) {
       free(shellCommands);
       fprintf(stderr, "Cannot allocate memory for shellCommands\n");
-      exit(1);
+      exit(EXIT_FAILURE);
     } else {
       shellCommands = realloc_retval;
     }
@@ -1313,7 +1313,7 @@ char **saveenv(char *name) {
         if(NULL == realloc_retval) {
           free(senv);
           fprintf(stderr, "Unable to allocate memory for saving environemnt\n");
-          exit(1);
+          exit(EXIT_FAILURE);
         } else {
           senv = realloc_retval;
         }
@@ -1633,7 +1633,7 @@ char **build_scp_args( char *str, size_t reserve ) {
       fprintf(stderr, "%s: error expanding arguments\n",
 	      progName);
     }
-    exit(1);
+    exit(EXIT_FAILURE);
   }
   return result.we_wordv;
 }
