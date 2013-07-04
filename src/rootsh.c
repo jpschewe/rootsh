@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <pwd.h>
 #include <limits.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <regex.h>
@@ -102,9 +103,8 @@ void execShell(const char *, const char *);
 char *setupusername(void);
 char *setupshell(void);
 int setupusermode(void);
-void finish(int);
+void finish(void);
 char* consume_remaining_args(int, char **, char *);
-void handle_sig_winch(int);
 int beginlogging(const char *);
 void dologging(char *, int);
 void endlogging(void);
@@ -122,6 +122,8 @@ void usage(void);
 pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
 char **build_scp_args( char *str, size_t reserve );
+void signalHandler(int const signal);
+void setupSignalHandlers(void);
 
 /* 
 //  global variables 
@@ -191,8 +193,6 @@ char **build_scp_args( char *str, size_t reserve );
 */
 extern char **environ;
 
-volatile sig_atomic_t sigwinch_received;
-
 static char progName[MAXPATHLEN];
 static char sessionId[MAXPATHLEN + 11];
 static int logFile;
@@ -252,6 +252,28 @@ static int masterPty;
 static struct termios termParams, newTty;
 static struct winsize winSize;
 
+volatile sig_atomic_t sigWinchReceived = 0;
+volatile sig_atomic_t sigIntReceived = 0;
+volatile sig_atomic_t sigQuitReceived = 0;
+volatile sig_atomic_t sigChldReceived = 0;
+
+void signalHandler(int const signal) {
+  fprintf(stderr, "Received signal %d is sigchild? %d\n", signal, (signal == SIGCHLD));
+  if(signal == SIGINT) {
+    sigIntReceived = 1;
+  }
+  else if(signal == SIGQUIT) {
+    sigQuitReceived = 1;
+  }
+  else if(signal == SIGCHLD) {
+    sigChldReceived = 1;
+  }
+  else if(signal == SIGWINCH) {
+    sigWinchReceived = 1;
+  } else {
+    fprintf(stderr, "Unexpected signal received: %d\n", signal);
+  }
+}
 
 int main(int argc, char **argv) {
   /*
@@ -388,16 +410,49 @@ int main(int argc, char **argv) {
   //  create a new session, become session leader 
   //  and attach filedescriptors 0-2 to the slave pty.
   */
-  if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
+  childPid = forkpty(&masterPty, NULL, &termParams, &winSize);
+  if(childPid < 0) {
     perror("fork");
     exit(EXIT_FAILURE);
-  }
-  if (childPid == 0) {
+  } else if (childPid == 0) {
     execShell(shell, shellCommands);
   } else {
     logSession(childPid);
   }
   exit(EXIT_SUCCESS);
+}
+
+void setupSignalHandlers(void) {
+  /* 
+  //  Handle these signals (posix functions preferred).
+  */
+#if HAVE_SIGACTION
+  struct sigaction action;
+#endif
+  
+#if HAVE_SIGACTION
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = signalHandler;
+  sigaction(SIGINT, &action, NULL);
+  sigaction(SIGQUIT, &action, NULL);
+  sigaction(SIGCHLD, &action, NULL);
+  sigaction(SIGWINCH, &action, NULL);
+#elif HAVE_SIGSET
+  sigset(SIGINT, signalHandler);
+  sigset(SIGQUIT, signalHandler);
+  sigset(SIGCHLD, signalHandler);
+  sigset(SIGWINCH, signalHandler);
+#else
+  signal(SIGINT, signalHandler);
+  signal(SIGQUIT, signalHandler);
+  signal(SIGCHLD, signalHandler);
+  signal(SIGWINCH, signalHandler);
+#endif
+
+  sigWinchReceived = 0;
+  sigIntReceived = 0;
+  sigQuitReceived = 0;
+  sigChldReceived = 0;
 }
 
 void logSession(const int childPid) {
@@ -414,25 +469,7 @@ void logSession(const int childPid) {
   int n;
   fd_set readmask;
   char buf[BUFSIZ];
-
-  /* 
-  //  Handle these signals (posix functions preferred).
-  */
-#if HAVE_SIGACTION
-  struct sigaction action;
-  memset(&action, 0, sizeof(action));
-  action.sa_handler = finish;
-  sigaction(SIGINT, &action, NULL);
-  sigaction(SIGQUIT, &action, NULL);
-#elif HAVE_SIGSET
-  sigset(SIGINT, finish);
-  sigset(SIGQUIT, finish);
-#else
-  signal(SIGINT, finish);
-  signal(SIGQUIT, finish);
-#endif
-  signal(SIGWINCH, handle_sig_winch);
-  sigwinch_received = 0;
+  sigset_t emptySet;
 
   newTty = termParams;
   /* 
@@ -471,6 +508,8 @@ void logSession(const int childPid) {
       exit(EXIT_FAILURE);
     }
   }
+
+  setupSignalHandlers();
   
   /* 
   //  Now just sit in a loop reading from the keyboard and
@@ -485,83 +524,92 @@ void logSession(const int childPid) {
     FD_SET(masterPty, &readmask);
     FD_SET(0, &readmask);
 
-    /* 
-    //  Wait for something to read.
-    */
-    n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
-               (struct timeval *) 0);
-    if (n < 0 && sigwinch_received == 0) {
-      char msgbuf[BUFSIZ];
-      int msglen;
-      char *error = strerror(errno);
-      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "select: %s", error);
-      dologging(msgbuf, msglen);
-      exit(EXIT_FAILURE);
-    }
-
-    if(sigwinch_received) {
-      /* pass SIGWINCH to the child */
-      sigwinch_received = 0;
-      signal(SIGWINCH, handle_sig_winch);
-      ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
-      ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
-      kill(childPid, SIGWINCH);
-      continue;
-    }
-
-    /* 
-    //  The user typed something... 
-    //  Read it and pass it on to the pseudo-tty.
-    */
-    if (FD_ISSET(0, &readmask)) {
-      if ((n = read(0, buf, sizeof(buf))) < 0) {
-        char msgbuf[BUFSIZ];
-        int msglen;
-        char *error = strerror(errno);
-        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "read - stdin: %s", error);
-        dologging(msgbuf, msglen);
-        exit(EXIT_FAILURE);
-      }
-      if (n == 0) {
-        /* 
-        //  The user typed end-of-file; we're done.
-        */
-        finish(0);
-      }
-      if (write(masterPty, buf, n) != n) {
-        char msgbuf[BUFSIZ];
-        int msglen;
-        char *error = strerror(errno);
-        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - pty: %s", error);
-        dologging(msgbuf, msglen);
-        exit(EXIT_FAILURE);
-      }
-    }
-
-    /* 
-    //  There's output on the pseudo-tty... 
-    //  Read it and pass it on to the screen and the script file.
-    //  Echo is on, so we see here also the users keystrokes.
-    */
-    if (FD_ISSET(masterPty, &readmask)) {
-      /* 
-      //  The process died.
-      */
-      if ((n = read(masterPty, buf, sizeof(buf))) <= 0) {
-        finish(0);
+    /*  Wait for something to read or a signal */
+    sigemptyset(&emptySet);
+    n = pselect(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
+                (struct timespec *) 0, &emptySet);
+    if (n < 0) {
+      if(EINTR == errno) {
+        fprintf(stderr, "Signal received, will handle below\n");
       } else {
-        dologging(buf, n);
-        if(write(STDOUT_FILENO, buf, n) < 0) {
+        char msgbuf[BUFSIZ];
+        int msglen;
+        char *error = strerror(errno);
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "select: %s", error);
+        dologging(msgbuf, msglen);
+        exit(EXIT_FAILURE);
+      }
+    } else {
+
+      /* handle file descriptors first */
+    
+      /* 
+      //  The user typed something... 
+      //  Read it and pass it on to the pseudo-tty.
+      */
+      if (FD_ISSET(0, &readmask)) {
+        if ((n = read(0, buf, sizeof(buf))) < 0) {
           char msgbuf[BUFSIZ];
           int msglen;
           char *error = strerror(errno);
-          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - stdout: %s", error);
+          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "read - stdin: %s", error);
+          dologging(msgbuf, msglen);
+          exit(EXIT_FAILURE);
+        }
+        if (write(masterPty, buf, n) != n) {
+          char msgbuf[BUFSIZ];
+          int msglen;
+          char *error = strerror(errno);
+          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - pty: %s", error);
           dologging(msgbuf, msglen);
           exit(EXIT_FAILURE);
         }
       }
+
+      /* 
+      //  There's output on the pseudo-tty... 
+      //  Read it and pass it on to the screen and the script file.
+      //  Echo is on, so we see here also the users keystrokes.
+      */
+      if (FD_ISSET(masterPty, &readmask)) {
+        if ((n = read(masterPty, buf, sizeof(buf))) > 0) {
+          dologging(buf, n);
+          if(write(STDOUT_FILENO, buf, n) < 0) {
+            char msgbuf[BUFSIZ];
+            int msglen;
+            char *error = strerror(errno);
+            msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - stdout: %s", error);
+            dologging(msgbuf, msglen);
+            exit(EXIT_FAILURE);
+          }
+        }
+      }
+    } /* something to read */
+
+    /* handle signals next */
+    if(sigWinchReceived) {
+      fprintf(stderr, "Received sigwinch\n");
+      
+      /* pass SIGWINCH to the child */
+      ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+      ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
+      kill(childPid, SIGWINCH);
+      
+      sigWinchReceived = 0;
     }
-  }
+
+    if(sigIntReceived || sigQuitReceived || sigChldReceived) {
+      fprintf(stderr, "Received signal\n");
+      finish();
+
+      sigIntReceived = 0;
+      sigQuitReceived = 0;
+      sigChldReceived = 0;
+    }
+    
+
+
+  } /* forever */
 
   {
     char const *msg = "rootsh closing duplicated pty";
@@ -570,7 +618,7 @@ void logSession(const int childPid) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "%s", msg);
     dologging(msgbuf, msglen);
   }
-  
+
   exit(EXIT_SUCCESS);
 }
 
@@ -662,24 +710,13 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
   return shellCommands;
 }
 
-void handle_sig_winch(int sig) {
-
-  sigwinch_received = 1;
-
-}
-
 /* 
 //  Do some cleaning after the child exited.
-//  This is also the signal handler for SIGINT and SIGQUIT.
 //  Restore original tty modes.
 //  Send some final words to the logging function.
 */
-
-void finish(int sig) {
+void finish(void) {
   /*
-  //  sig	Either 0 if the shell exited or the number of a
-  //		signal that was catched.
-  //
   //  msgbuf	A buffer where a variable text will be written.
   //
   //  msglen	Counts how many characters have been written.
@@ -687,23 +724,46 @@ void finish(int sig) {
   */
   char msgbuf[BUFSIZ];
   int msglen;
-
+  pid_t pid;
+  int status;
+  int exitStatus = EXIT_SUCCESS;
+  
   if(isatty(0)) {
     if (tcsetattr(0, TCSANOW, &termParams) < 0) {
       perror("tcsetattr: stdin");
     }
   }
-  if (sig == 0) { 
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session ended by user\r\n", progName);
+  
+  pid = wait(&status);
+  if(pid < 0) {
+    char *error = strerror(errno);
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "Error getting status of child process: %s", error);
+    dologging(msgbuf, msglen);
+    exitStatus = EXIT_FAILURE;
   } else {
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session interrupted by signal %d\r\n", progName, sig);
-  }
-  dologging(msgbuf, msglen);
+    if(WIFEXITED(status)) {
+      exitStatus = WEXITSTATUS(status);
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "\n*** %s session ended by user\r\n", progName);
+      dologging(msgbuf, msglen);
+    } else if(WIFSIGNALED(status)) {
+      int const sig = WTERMSIG(status);
+      
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "\n*** %s session interrupted by signal %d\r\n", progName, sig);
+      dologging(msgbuf, msglen);
+      exitStatus = EXIT_FAILURE;
+    } else {
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "\n*** %s session ended for unknown reason\r\n", progName);
+      dologging(msgbuf, msglen);
+      exitStatus = EXIT_FAILURE;
+    }
+  } /* got status from wait */
+  
   endlogging();
   close(masterPty);
-  exit(EXIT_SUCCESS);
+  exit(exitStatus);
 }
 
 
