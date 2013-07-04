@@ -258,7 +258,6 @@ volatile sig_atomic_t sigQuitReceived = 0;
 volatile sig_atomic_t sigChldReceived = 0;
 
 void signalHandler(int const signal) {
-  fprintf(stderr, "Received signal %d is sigchild? %d\n", signal, (signal == SIGCHLD));
   if(signal == SIGINT) {
     sigIntReceived = 1;
   }
@@ -529,9 +528,7 @@ void logSession(const int childPid) {
     n = pselect(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
                 (struct timespec *) 0, &emptySet);
     if (n < 0) {
-      if(EINTR == errno) {
-        fprintf(stderr, "Signal received, will handle below\n");
-      } else {
+      if(EINTR != errno) {
         char msgbuf[BUFSIZ];
         int msglen;
         char *error = strerror(errno);
@@ -588,8 +585,6 @@ void logSession(const int childPid) {
 
     /* handle signals next */
     if(sigWinchReceived) {
-      fprintf(stderr, "Received sigwinch\n");
-      
       /* pass SIGWINCH to the child */
       ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
       ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
@@ -599,7 +594,6 @@ void logSession(const int childPid) {
     }
 
     if(sigIntReceived || sigQuitReceived || sigChldReceived) {
-      fprintf(stderr, "Received signal\n");
       finish();
 
       sigIntReceived = 0;
