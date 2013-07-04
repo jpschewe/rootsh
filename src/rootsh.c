@@ -121,7 +121,6 @@ void usage(void);
 #ifndef HAVE_FORKPTY
 pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
-char **build_scp_args( char *str, size_t reserve );
 void signalHandler(int const signal);
 void setupSignalHandlers(void);
 
@@ -773,11 +772,6 @@ int beginlogging(const char *shellCommands) {
   //  
   //  msglen		Counts how many characters have been written.
   //  
-  //  defLogFileName	The name of the logfile how it will be called,
-  //			if the user did not provide his own name.
-  //			Made up from username, a timestamp and the
-  //			process id.
-  //  
   //  now		A structure filled with the current time.
   //  
   //  sec, min, hour	Components of now.
@@ -792,8 +786,6 @@ int beginlogging(const char *shellCommands) {
   char msgbuf[BUFSIZ];
   struct stat statBuf;
   time_t now;
-  char defLogFileName[MAXPATHLEN - 7];
-  static char sessionIdWithUid[sizeof(sessionId) + 10];
   char const * user = runAsUser ? runAsUser : getpwuid(getuid())->pw_name;
   char const * const rawtty = ttyname(0);
   char const * const tty = rawtty == 0 ? "" : rawtty;
@@ -806,8 +798,14 @@ int beginlogging(const char *shellCommands) {
 
   if (logtofile) {
     int sec, min, hour, day, month, year;
+    char defLogFileName[MAXPATHLEN - 7];
 
     /*
+    //  defLogFileName	The name of the logfile how it will be called,
+    //			if the user did not provide his own name.
+    //			Made up from username, a timestamp and the
+    //			process id.
+    //  
     //  Construct the logfile name. 
     //  logdir/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
     //  In standalone mode, a user may propose his own filename
@@ -886,6 +884,7 @@ int beginlogging(const char *shellCommands) {
     //  Prepare usage of syslog with sessionid as prefix.
     */
     if(syslogLogUsername) {
+      static char sessionIdWithUid[sizeof(sessionId) + 10];
       snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
                sessionId, userName);
       openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
@@ -1344,7 +1343,6 @@ char **saveenv(char *name) {
   //  
   */
   static char **senv = NULL;
-  static char **senvp;
   char **realloc_retval;
   if (name == NULL) {
     return senv;
@@ -1353,6 +1351,11 @@ char **saveenv(char *name) {
     //  Only save existing variables.
     */
     if (getenv(name) != NULL) {
+      /*
+      //  senvp	A pointer to the last entry in senv.
+      //  
+      */
+      static char **senvp;
       if (senv == NULL) {
         /*
         //  We are called for the first time. Allocate memory to
@@ -1652,46 +1655,6 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
 }
 #endif
 
-char **build_scp_args( char *str, size_t reserve ) {
-
-  wordexp_t       result;
-  int             retc;
-
-  result.we_offs = reserve;
-  if ( (retc = wordexp(str, &result, WRDE_NOCMD|WRDE_DOOFFS)) ){
-    switch( retc ){
-    case WRDE_BADCHAR:
-    case WRDE_CMDSUB:
-      fprintf(stderr, "%s: bad characters in arguments\n",
-	      progName);
-      break;
-    case WRDE_NOSPACE:
-      fprintf(stderr, "%s: wordexp() allocation failed\n",
-	      progName);
-      break;
-    case WRDE_BADVAL:
-      fprintf(stderr, "%s: wordexp() bad value\n",
-	      progName);
-      break;
-    case WRDE_SYNTAX:
-      fprintf(stderr, "%s: wordexp() bad syntax\n",
-	      progName);
-      break;
-#ifdef WRDE_NOSYS
-    case WRDE_NOSYS:
-      fprintf(stderr, "%s: wordexp() not supported\n",
-	      progName);
-      break;
-#endif
-    default:
-      fprintf(stderr, "%s: error expanding arguments\n",
-	      progName);
-    }
-    exit(EXIT_FAILURE);
-  }
-  return result.we_wordv;
-}
-
 /*
 //  Print version number and capabilities of this binary.
 */
@@ -1785,10 +1748,10 @@ bool readConfigFile(void) {
   
   
   while(NULL != fgets(line, lineSize, config)) {
-    char key[MAXPATHLEN+1];
-    char value[MAXPATHLEN+1];
-
     if(isConfigLine(line)) {
+      char key[MAXPATHLEN+1];
+      char value[MAXPATHLEN+1];
+
       bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
     
       if(!result) {
