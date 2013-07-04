@@ -48,7 +48,7 @@ cd "${WORKSPACE}"
 
 # cppcheck after configure, before make to have config.h
 cd ${WORKSPACE}
-cppcheck -I src --enable=all --xml src test 2> ${mydir}/cppcheck.xml
+cppcheck -I src --enable=all --xml -i src/getopt.c src test 2> ${mydir}/cppcheck.xml
 
 
 make || fatal "Error building"
