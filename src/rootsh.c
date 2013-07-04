@@ -1676,7 +1676,7 @@ void version() {
            progName, defaultShell);
   }
 
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 
@@ -1694,7 +1694,7 @@ void usage(void) {
     " --no-logfile          switch off logging to a file (standalone only)\n"
     " --no-syslog           switch off logging to syslog (standalone only)\n"
     " -V, --version         show version statement\n", progName);
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 bool readConfigFile(void) {
