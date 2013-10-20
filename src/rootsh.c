@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
   */
   childPid = forkpty(&masterPty, NULL, &termParams, &winSize);
   if(childPid < 0) {
-    perror("fork");
+    perror("forkpty");
     exit(EXIT_FAILURE);
   } else if (childPid == 0) {
     execShell(shell, shellCommands);
