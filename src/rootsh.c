@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <pwd.h>
 #include <limits.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <regex.h>
@@ -102,9 +103,8 @@ void execShell(const char *, const char *);
 char *setupusername(void);
 char *setupshell(void);
 int setupusermode(void);
-void finish(int);
+void finish(void);
 char* consume_remaining_args(int, char **, char *);
-void handle_sig_winch(int);
 int beginlogging(const char *);
 void dologging(char *, int);
 void endlogging(void);
@@ -121,7 +121,8 @@ void usage(void);
 #ifndef HAVE_FORKPTY
 pid_t forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
-char **build_scp_args( char *str, size_t reserve );
+void signalHandler(int const signal);
+void setupSignalHandlers(void);
 
 /* 
 //  global variables 
@@ -191,8 +192,6 @@ char **build_scp_args( char *str, size_t reserve );
 */
 extern char **environ;
 
-volatile sig_atomic_t sigwinch_received;
-
 static char progName[MAXPATHLEN];
 static char sessionId[MAXPATHLEN + 11];
 static int logFile;
@@ -252,6 +251,27 @@ static int masterPty;
 static struct termios termParams, newTty;
 static struct winsize winSize;
 
+volatile sig_atomic_t sigWinchReceived = 0;
+volatile sig_atomic_t sigIntReceived = 0;
+volatile sig_atomic_t sigQuitReceived = 0;
+volatile sig_atomic_t sigChldReceived = 0;
+
+void signalHandler(int const signal) {
+  if(signal == SIGINT) {
+    sigIntReceived = 1;
+  }
+  else if(signal == SIGQUIT) {
+    sigQuitReceived = 1;
+  }
+  else if(signal == SIGCHLD) {
+    sigChldReceived = 1;
+  }
+  else if(signal == SIGWINCH) {
+    sigWinchReceived = 1;
+  } else {
+    fprintf(stderr, "Unexpected signal received: %d\n", signal);
+  }
+}
 
 int main(int argc, char **argv) {
   /*
@@ -388,16 +408,49 @@ int main(int argc, char **argv) {
   //  create a new session, become session leader 
   //  and attach filedescriptors 0-2 to the slave pty.
   */
-  if ((childPid = forkpty(&masterPty, NULL, &termParams, &winSize)) < 0) {
-    perror("fork");
+  childPid = forkpty(&masterPty, NULL, &termParams, &winSize);
+  if(childPid < 0) {
+    perror("forkpty");
     exit(EXIT_FAILURE);
-  }
-  if (childPid == 0) {
+  } else if (childPid == 0) {
     execShell(shell, shellCommands);
   } else {
     logSession(childPid);
   }
   exit(EXIT_SUCCESS);
+}
+
+void setupSignalHandlers(void) {
+  /* 
+  //  Handle these signals (posix functions preferred).
+  */
+#if HAVE_SIGACTION
+  struct sigaction action;
+#endif
+  
+#if HAVE_SIGACTION
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = signalHandler;
+  sigaction(SIGINT, &action, NULL);
+  sigaction(SIGQUIT, &action, NULL);
+  sigaction(SIGCHLD, &action, NULL);
+  sigaction(SIGWINCH, &action, NULL);
+#elif HAVE_SIGSET
+  sigset(SIGINT, signalHandler);
+  sigset(SIGQUIT, signalHandler);
+  sigset(SIGCHLD, signalHandler);
+  sigset(SIGWINCH, signalHandler);
+#else
+  signal(SIGINT, signalHandler);
+  signal(SIGQUIT, signalHandler);
+  signal(SIGCHLD, signalHandler);
+  signal(SIGWINCH, signalHandler);
+#endif
+
+  sigWinchReceived = 0;
+  sigIntReceived = 0;
+  sigQuitReceived = 0;
+  sigChldReceived = 0;
 }
 
 void logSession(const int childPid) {
@@ -414,25 +467,7 @@ void logSession(const int childPid) {
   int n;
   fd_set readmask;
   char buf[BUFSIZ];
-
-  /* 
-  //  Handle these signals (posix functions preferred).
-  */
-#if HAVE_SIGACTION
-  struct sigaction action;
-  memset(&action, 0, sizeof(action));
-  action.sa_handler = finish;
-  sigaction(SIGINT, &action, NULL);
-  sigaction(SIGQUIT, &action, NULL);
-#elif HAVE_SIGSET
-  sigset(SIGINT, finish);
-  sigset(SIGQUIT, finish);
-#else
-  signal(SIGINT, finish);
-  signal(SIGQUIT, finish);
-#endif
-  signal(SIGWINCH, handle_sig_winch);
-  sigwinch_received = 0;
+  sigset_t emptySet;
 
   newTty = termParams;
   /* 
@@ -471,6 +506,8 @@ void logSession(const int childPid) {
       exit(EXIT_FAILURE);
     }
   }
+
+  setupSignalHandlers();
   
   /* 
   //  Now just sit in a loop reading from the keyboard and
@@ -485,83 +522,87 @@ void logSession(const int childPid) {
     FD_SET(masterPty, &readmask);
     FD_SET(0, &readmask);
 
-    /* 
-    //  Wait for something to read.
-    */
-    n = select(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
-               (struct timeval *) 0);
-    if (n < 0 && sigwinch_received == 0) {
-      char msgbuf[BUFSIZ];
-      int msglen;
-      char *error = strerror(errno);
-      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "select: %s", error);
-      dologging(msgbuf, msglen);
-      exit(EXIT_FAILURE);
-    }
-
-    if(sigwinch_received) {
-      /* pass SIGWINCH to the child */
-      sigwinch_received = 0;
-      signal(SIGWINCH, handle_sig_winch);
-      ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
-      ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
-      kill(childPid, SIGWINCH);
-      continue;
-    }
-
-    /* 
-    //  The user typed something... 
-    //  Read it and pass it on to the pseudo-tty.
-    */
-    if (FD_ISSET(0, &readmask)) {
-      if ((n = read(0, buf, sizeof(buf))) < 0) {
+    /*  Wait for something to read or a signal */
+    sigemptyset(&emptySet);
+    n = pselect(masterPty + 1, &readmask, (fd_set *) 0, (fd_set *) 0,
+                (struct timespec *) 0, &emptySet);
+    if (n < 0) {
+      if(EINTR != errno) {
         char msgbuf[BUFSIZ];
         int msglen;
         char *error = strerror(errno);
-        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "read - stdin: %s", error);
+        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "select: %s", error);
         dologging(msgbuf, msglen);
         exit(EXIT_FAILURE);
       }
-      if (n == 0) {
-        /* 
-        //  The user typed end-of-file; we're done.
-        */
-        finish(0);
-      }
-      if (write(masterPty, buf, n) != n) {
-        char msgbuf[BUFSIZ];
-        int msglen;
-        char *error = strerror(errno);
-        msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - pty: %s", error);
-        dologging(msgbuf, msglen);
-        exit(EXIT_FAILURE);
-      }
-    }
+    } else {
 
-    /* 
-    //  There's output on the pseudo-tty... 
-    //  Read it and pass it on to the screen and the script file.
-    //  Echo is on, so we see here also the users keystrokes.
-    */
-    if (FD_ISSET(masterPty, &readmask)) {
+      /* handle file descriptors first */
+    
       /* 
-      //  The process died.
+      //  The user typed something... 
+      //  Read it and pass it on to the pseudo-tty.
       */
-      if ((n = read(masterPty, buf, sizeof(buf))) <= 0) {
-        finish(0);
-      } else {
-        dologging(buf, n);
-        if(write(STDOUT_FILENO, buf, n) < 0) {
+      if (FD_ISSET(0, &readmask)) {
+        if ((n = read(0, buf, sizeof(buf))) < 0) {
           char msgbuf[BUFSIZ];
           int msglen;
           char *error = strerror(errno);
-          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - stdout: %s", error);
+          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "read - stdin: %s", error);
+          dologging(msgbuf, msglen);
+          exit(EXIT_FAILURE);
+        }
+        if (write(masterPty, buf, n) != n) {
+          char msgbuf[BUFSIZ];
+          int msglen;
+          char *error = strerror(errno);
+          msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - pty: %s", error);
           dologging(msgbuf, msglen);
           exit(EXIT_FAILURE);
         }
       }
+
+      /* 
+      //  There's output on the pseudo-tty... 
+      //  Read it and pass it on to the screen and the script file.
+      //  Echo is on, so we see here also the users keystrokes.
+      */
+      if (FD_ISSET(masterPty, &readmask)) {
+        if ((n = read(masterPty, buf, sizeof(buf))) > 0) {
+          dologging(buf, n);
+          if(write(STDOUT_FILENO, buf, n) < 0) {
+            char msgbuf[BUFSIZ];
+            int msglen;
+            char *error = strerror(errno);
+            msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "write - stdout: %s", error);
+            dologging(msgbuf, msglen);
+            exit(EXIT_FAILURE);
+          }
+        }
+      }
+    } /* something to read */
+
+    /* handle signals next */
+    if(sigWinchReceived) {
+      /* pass SIGWINCH to the child */
+      ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
+      ioctl(masterPty, TIOCSWINSZ, (char *)&winSize);
+      kill(childPid, SIGWINCH);
+      
+      sigWinchReceived = 0;
     }
-  }
+
+    if(sigIntReceived || sigQuitReceived || sigChldReceived) {
+      finish();
+
+      sigIntReceived = 0;
+      sigQuitReceived = 0;
+      sigChldReceived = 0;
+    }
+    
+
+
+  } /* forever */
 
   {
     char const *msg = "rootsh closing duplicated pty";
@@ -570,7 +611,7 @@ void logSession(const int childPid) {
     msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "%s", msg);
     dologging(msgbuf, msglen);
   }
-  
+
   exit(EXIT_SUCCESS);
 }
 
@@ -643,7 +684,7 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
       shellCommands = calloc(sizeof(char), 1);
       if(NULL == shellCommands) {
         fprintf(stderr, "Cannot allocate memory for shellCommands\n");
-        exit(1);
+        exit(EXIT_FAILURE);
       }
     }
     realloc_retval = realloc(shellCommands, 
@@ -651,7 +692,7 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
     if(NULL == realloc_retval) {
       free(shellCommands);
       fprintf(stderr, "Cannot allocate memory for shellCommands\n");
-      exit(1);
+      exit(EXIT_FAILURE);
     } else {
       shellCommands = realloc_retval;
     }
@@ -662,24 +703,13 @@ char * consume_remaining_args(int argc, char **argv, char *shellCommands) {
   return shellCommands;
 }
 
-void handle_sig_winch(int sig) {
-
-  sigwinch_received = 1;
-
-}
-
 /* 
 //  Do some cleaning after the child exited.
-//  This is also the signal handler for SIGINT and SIGQUIT.
 //  Restore original tty modes.
 //  Send some final words to the logging function.
 */
-
-void finish(int sig) {
+void finish(void) {
   /*
-  //  sig	Either 0 if the shell exited or the number of a
-  //		signal that was catched.
-  //
   //  msgbuf	A buffer where a variable text will be written.
   //
   //  msglen	Counts how many characters have been written.
@@ -687,23 +717,46 @@ void finish(int sig) {
   */
   char msgbuf[BUFSIZ];
   int msglen;
-
+  pid_t pid;
+  int status;
+  int exitStatus = EXIT_SUCCESS;
+  
   if(isatty(0)) {
     if (tcsetattr(0, TCSANOW, &termParams) < 0) {
       perror("tcsetattr: stdin");
     }
   }
-  if (sig == 0) { 
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session ended by user\r\n", progName);
+  
+  pid = wait(&status);
+  if(pid < 0) {
+    char *error = strerror(errno);
+    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1), "Error getting status of child process: %s", error);
+    dologging(msgbuf, msglen);
+    exitStatus = EXIT_FAILURE;
   } else {
-    msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
-        "\n*** %s session interrupted by signal %d\r\n", progName, sig);
-  }
-  dologging(msgbuf, msglen);
+    if(WIFEXITED(status)) {
+      exitStatus = WEXITSTATUS(status);
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "\n*** %s session ended by user\r\n", progName);
+      dologging(msgbuf, msglen);
+    } else if(WIFSIGNALED(status)) {
+      int const sig = WTERMSIG(status);
+      
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "\n*** %s session interrupted by signal %d\r\n", progName, sig);
+      dologging(msgbuf, msglen);
+      exitStatus = EXIT_FAILURE;
+    } else {
+      msglen = snprintf(msgbuf, (sizeof(msgbuf) - 1),
+                        "\n*** %s session ended for unknown reason\r\n", progName);
+      dologging(msgbuf, msglen);
+      exitStatus = EXIT_FAILURE;
+    }
+  } /* got status from wait */
+  
   endlogging();
   close(masterPty);
-  exit(EXIT_SUCCESS);
+  exit(exitStatus);
 }
 
 
@@ -719,11 +772,6 @@ int beginlogging(const char *shellCommands) {
   //  
   //  msglen		Counts how many characters have been written.
   //  
-  //  defLogFileName	The name of the logfile how it will be called,
-  //			if the user did not provide his own name.
-  //			Made up from username, a timestamp and the
-  //			process id.
-  //  
   //  now		A structure filled with the current time.
   //  
   //  sec, min, hour	Components of now.
@@ -738,8 +786,6 @@ int beginlogging(const char *shellCommands) {
   char msgbuf[BUFSIZ];
   struct stat statBuf;
   time_t now;
-  char defLogFileName[MAXPATHLEN - 7];
-  static char sessionIdWithUid[sizeof(sessionId) + 10];
   char const * user = runAsUser ? runAsUser : getpwuid(getuid())->pw_name;
   char const * const rawtty = ttyname(0);
   char const * const tty = rawtty == 0 ? "" : rawtty;
@@ -752,8 +798,14 @@ int beginlogging(const char *shellCommands) {
 
   if (logtofile) {
     int sec, min, hour, day, month, year;
+    char defLogFileName[MAXPATHLEN - 7];
 
     /*
+    //  defLogFileName	The name of the logfile how it will be called,
+    //			if the user did not provide his own name.
+    //			Made up from username, a timestamp and the
+    //			process id.
+    //  
     //  Construct the logfile name. 
     //  logdir/<username>.YYYY.MM.DD.HH.MI.SS.<sessionId>
     //  In standalone mode, a user may propose his own filename
@@ -832,6 +884,7 @@ int beginlogging(const char *shellCommands) {
     //  Prepare usage of syslog with sessionid as prefix.
     */
     if(syslogLogUsername) {
+      static char sessionIdWithUid[sizeof(sessionId) + 10];
       snprintf(sessionIdWithUid, sizeof(sessionIdWithUid), "%s: %s",
                sessionId, userName);
       openlog(sessionIdWithUid, LOG_NDELAY, SYSLOGFACILITY);
@@ -1290,7 +1343,6 @@ char **saveenv(char *name) {
   //  
   */
   static char **senv = NULL;
-  static char **senvp;
   char **realloc_retval;
   if (name == NULL) {
     return senv;
@@ -1299,6 +1351,11 @@ char **saveenv(char *name) {
     //  Only save existing variables.
     */
     if (getenv(name) != NULL) {
+      /*
+      //  senvp	A pointer to the last entry in senv.
+      //  
+      */
+      static char **senvp;
       if (senv == NULL) {
         /*
         //  We are called for the first time. Allocate memory to
@@ -1313,7 +1370,7 @@ char **saveenv(char *name) {
         if(NULL == realloc_retval) {
           free(senv);
           fprintf(stderr, "Unable to allocate memory for saving environemnt\n");
-          exit(1);
+          exit(EXIT_FAILURE);
         } else {
           senv = realloc_retval;
         }
@@ -1598,46 +1655,6 @@ pid_t forkpty(int *amaster,  char  *name,  struct  termios *termp, struct winsiz
 }
 #endif
 
-char **build_scp_args( char *str, size_t reserve ) {
-
-  wordexp_t       result;
-  int             retc;
-
-  result.we_offs = reserve;
-  if ( (retc = wordexp(str, &result, WRDE_NOCMD|WRDE_DOOFFS)) ){
-    switch( retc ){
-    case WRDE_BADCHAR:
-    case WRDE_CMDSUB:
-      fprintf(stderr, "%s: bad characters in arguments\n",
-	      progName);
-      break;
-    case WRDE_NOSPACE:
-      fprintf(stderr, "%s: wordexp() allocation failed\n",
-	      progName);
-      break;
-    case WRDE_BADVAL:
-      fprintf(stderr, "%s: wordexp() bad value\n",
-	      progName);
-      break;
-    case WRDE_SYNTAX:
-      fprintf(stderr, "%s: wordexp() bad syntax\n",
-	      progName);
-      break;
-#ifdef WRDE_NOSYS
-    case WRDE_NOSYS:
-      fprintf(stderr, "%s: wordexp() not supported\n",
-	      progName);
-      break;
-#endif
-    default:
-      fprintf(stderr, "%s: error expanding arguments\n",
-	      progName);
-    }
-    exit(1);
-  }
-  return result.we_wordv;
-}
-
 /*
 //  Print version number and capabilities of this binary.
 */
@@ -1676,7 +1693,7 @@ void version() {
            progName, defaultShell);
   }
 
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 
@@ -1694,7 +1711,7 @@ void usage(void) {
     " --no-logfile          switch off logging to a file (standalone only)\n"
     " --no-syslog           switch off logging to syslog (standalone only)\n"
     " -V, --version         show version statement\n", progName);
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 bool readConfigFile(void) {
@@ -1731,10 +1748,10 @@ bool readConfigFile(void) {
   
   
   while(NULL != fgets(line, lineSize, config)) {
-    char key[MAXPATHLEN+1];
-    char value[MAXPATHLEN+1];
-
     if(isConfigLine(line)) {
+      char key[MAXPATHLEN+1];
+      char value[MAXPATHLEN+1];
+
       bool const result = splitConfigLine(line, sizeof(key), key, sizeof(value), value);
     
       if(!result) {
