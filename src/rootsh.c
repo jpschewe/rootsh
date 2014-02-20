@@ -201,7 +201,11 @@ static char logFileName[MAXPATHLEN - 9];
 static char *userLogFileName;
 static char *userLogFileDir;
 
+#ifndef LOGTOFILE
 static bool logtofile = false;
+#else
+static bool logtofile = true;
+#endif
 static char logdir[MAXPATHLEN+1];
 
 /**
@@ -305,6 +309,24 @@ int main(int argc, char **argv) {
       {0, 0, 0, 0}
   };
 
+  /* make sure logdir is empty */
+  logdir[0] = '\0';
+
+  /* copy compiled value into logdir */
+  if(strlen(LOGDIR) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for logdir: '%s' is longer than max path len: %d\n", LOGDIR, MAXPATHLEN);
+    exit(EXIT_FAILURE);
+  }
+  strcpy(logdir, LOGDIR);
+
+  
+  /* setup default shell */
+  if(strlen(DEFAULTSHELL) > MAXPATHLEN) {
+    fprintf(stderr, "Compiled value for default shell: '%s' is longer than max path len: %d\n", DEFAULTSHELL, MAXPATHLEN);
+    exit(EXIT_FAILURE);
+  }
+  strcpy(defaultshell, DEFAULTSHELL);
+  
   if(!readConfigFile()) {
     fprintf(stderr, "Error setting up configuration options\n");
     exit(EXIT_FAILURE);
@@ -1708,8 +1730,8 @@ void usage(void) {
     " -u, --user=username   run shell as a different user\n"
     " -f, --logfile=file    name of your logfile (standalone only)\n"
     " -d, --logdir=DIR      directory for your logfile (standalone only)\n"
-    " --no-logfile          switch off logging to a file (standalone only)\n"
-    " --no-syslog           switch off logging to syslog (standalone only)\n"
+    " -x, --no-logfile      switch off logging to a file (standalone only)\n"
+    " -y, --no-syslog       switch off logging to syslog (standalone only)\n"
     " -V, --version         show version statement\n", progName);
   exit(EXIT_SUCCESS);
 }
@@ -1725,26 +1747,6 @@ bool readConfigFile(void) {
     return true;
   }
 
-  
-  /* make sure logdir is empty */
-  logdir[0] = '\0';
-
-  /* copy compiled value into logdir */
-  if(strlen(LOGDIR) > MAXPATHLEN) {
-    fprintf(stderr, "Compiled value for logdir: '%s' is longer than max path len: %d\n", LOGDIR, MAXPATHLEN);
-    retval = false;
-    goto cleanup;
-  }
-  strcpy(logdir, LOGDIR);
-
-  
-  /* setup default shell */
-  if(strlen(DEFAULTSHELL) > MAXPATHLEN) {
-    fprintf(stderr, "Compiled value for default shell: '%s' is longer than max path len: %d\n", DEFAULTSHELL, MAXPATHLEN);
-    retval = false;
-    goto cleanup;
-  }
-  strcpy(defaultshell, DEFAULTSHELL);
   
   
   while(NULL != fgets(line, lineSize, config)) {
