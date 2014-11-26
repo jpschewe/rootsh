@@ -120,7 +120,7 @@ You can also use chattr on the log directory to try and thwart the abuser.
 
 Testing:
 =======
-Continuous integration testing is done with Jenkins at http://mtu.net:8042/job/rootsh/
+Continuous integration testing is done with Jenkins at http://mtu.net/jenkins/job/rootsh/
 
 Binaries:
 =========
