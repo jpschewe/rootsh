@@ -1,7 +1,5 @@
 include $(top_srcdir)/Makefile.am.coverage
 
-AUTOMAKE_OPTIONS=subdir-objects
-
 SUBDIRS = src test
 EXTRA_DIST = contrib src/gnugetopt.h src/getopt.c src/getopt1.c src/write2syslog.h test.sh rootsh.1
 man_MANS = rootsh.1

@@ -1,4 +1,3 @@
-AUTOMAKE_OPTIONS=subdir-objects
 bin_PROGRAMS = rootsh
 rootsh_SOURCES = rootsh.c
 rootsh_SOURCES += write2syslog.c
