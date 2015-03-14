@@ -1,4 +1,5 @@
 TESTS = testConfigParser
+AUTOMAKE_OPTIONS=subdir-objects
 
 check_PROGRAMS = testConfigParser
 
