@@ -138,15 +138,3 @@ his traces or manipulate the logfiles.
 With (per default) activated syslog logging you have at least a chance
 to seek out suspicious traces of misbehaviour.
 You can also use chattr on the log directory to try and thwart the abuser.
-
-Testing:
-=======
-Continuous integration testing is done with Jenkins at http://mtu.net/jenkins/job/rootsh/
-
-Binaries:
-=========
-
-Binaries for a number of Linux distributions are built
-in the Opensuse build service. You can find them at
-https://build.opensuse.org/package/show/home:jpschewe/rootsh
-
