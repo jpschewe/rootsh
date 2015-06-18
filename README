@@ -1,3 +1,24 @@
+Now that sudo has the ability to log input and output, I see no reason to
+continue development of rootsh.
+
+Here are the lines that I've added to mu sudoers file:
+
+    Defaults iolog_dir=/var/log/sudo-io
+
+    # Members of the admin group may gain root privileges
+    %admin ALL=(ALL) LOG_OUTPUT:LOG_INPUT: ALL
+    # prevent recursive logging
+    %admin ALL=(ALL) NOLOG_OUTPUT:NOLOG_INPUT: /usr/bin/sudoreplay
+
+This nicely logs everything that rootsh was logging and doesn't log when
+I'm replaying log files. The sudoreplay tool can be used to list the
+sessions that were logged and play them back.
+
+I use the following crontab entry to clean up the old sudo log files:
+    0 0 1 * * find /var/log/sudo-io -mtime +90 -print | xargs -r rm -v 
+
+
+
 Introduction:
 =============
 
