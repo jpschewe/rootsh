@@ -1,7 +1,7 @@
 Now that sudo has the ability to log input and output, I see no reason to
 continue development of rootsh.
 
-Here are the lines that I've added to mu sudoers file:
+Here are the lines that I've added to my sudoers file:
 
     Defaults iolog_dir=/var/log/sudo-io
 
