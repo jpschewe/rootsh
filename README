@@ -16,6 +16,7 @@ sessions that were logged and play them back.
 
 I use the following crontab entry to clean up the old sudo log files:
     0 0 1 * * find /var/log/sudo-io -mtime +90 -print | xargs -r rm -v 
+    0 0 2 * * find /var/log/sudo-io -type d -empty -delete
 
 
 
