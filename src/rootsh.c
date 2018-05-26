@@ -424,6 +424,24 @@ int main(int argc, char **argv) {
   */
   ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&winSize);
   
+  /*
+  // Don't log output of commands that use a binary protocol.
+  */
+  {
+    const char *scpPrefix = "scp ";
+    const char *sftpPrefix = "/usr/libexec/openssh/sftp-server ";
+    const char *rsyncPrefix = "rsync ";
+    if (shellCommands && (
+         strncmp(shellCommands, scpPrefix, strlen(scpPrefix)) == 0
+      || strncmp(shellCommands, sftpPrefix, strlen(sftpPrefix)) == 0
+      || strncmp(shellCommands, rsyncPrefix, strlen(rsyncPrefix)) == 0
+    )) {
+      endlogging();
+      execShell(shell, shellCommands); 
+      exit(EXIT_SUCCESS);
+    }
+  }
+
   /* 
   //  fork a child process, create a pty pair, 
   //  make the slave the controlling terminal,
